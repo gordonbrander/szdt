@@ -61,6 +61,18 @@ impl Archive {
         })
     }
 
+    /// Create an archive from the file contents of a directory
+    pub fn from_dir(dir: &Path) -> Result<Archive> {
+        let mut paths: Vec<PathBuf> = Vec::new();
+        for entry in fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_file() {
+                paths.push(path);
+            }
+        }
+        return Archive::from_paths(&paths);
+    }
+
     /// Write archive to CBOR
     pub fn write_cbor(&self, path: &Path) -> Result<()> {
         let cbor_file = fs::File::create(path)?;

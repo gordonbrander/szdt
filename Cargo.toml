@@ -1,7 +1,11 @@
 [package]
 name = "szdat"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
+
+[[bin]]
+name = "szdat"
+path = "src/bin/szdat.rs"
 
 [dependencies]
 clap = { version = "4.5.31", features = ["derive"] }
