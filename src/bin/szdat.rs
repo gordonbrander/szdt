@@ -29,14 +29,23 @@ enum Commands {
 }
 
 fn archive(dir: PathBuf) {
-    let archive = Archive::from_dir(&dir).expect("Read archive files");
+    let archive = Archive::from_dir(&dir).expect("Should be able to read directory");
     let output_path = dir.with_extension("szdat");
     archive
-        .write_cbor(&output_path)
-        .expect("Wrote archive file");
+        .write_archive(&output_path)
+        .expect("Should be able to write archive file");
+    println!("Archived: {:?}", output_path);
 }
 
-fn unarchive(_file: PathBuf) {}
+fn unarchive(file: PathBuf) {
+    let archive = Archive::read_archive(&file).expect("Should be able to read archive");
+    let dir = file.with_extension("");
+    archive
+        .write_archive_contents(&dir)
+        .expect("Should be able to write unarchived files");
+
+    println!("Unarchived: {:?}", dir);
+}
 
 fn main() {
     let cli = Cli::parse();
