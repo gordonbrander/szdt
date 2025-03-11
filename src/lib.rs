@@ -1,3 +1,5 @@
+use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, VerifyingKey};
+use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_cbor;
 use std::fs;
@@ -77,6 +79,13 @@ impl Archive {
         serde_cbor::to_writer(cbor_file, self).map_err(|e| std::io::Error::other(e))
     }
 
+    /// Serialize the archive as CBOR and return the bytes
+    pub fn to_cbor_bytes(&self) -> Result<Vec<u8>> {
+        let mut buffer = Vec::new();
+        serde_cbor::to_writer(&mut buffer, self).map_err(|e| std::io::Error::other(e))?;
+        Ok(buffer)
+    }
+
     /// Write the contents of the archive to individual files in a directory
     pub fn write_archive_contents(&self, dir: &Path) -> Result<()> {
         fs::create_dir_all(dir).expect("Directory should not exist");
@@ -95,6 +104,38 @@ impl Archive {
             serde_cbor::from_reader(cbor_file).map_err(|e| std::io::Error::other(e))?;
         Ok(archive)
     }
+}
+
+pub struct Envelope {
+    pub content: Archive,
+    /// Signature
+    pub sig: Option<u64>,
+}
+
+impl Envelope {
+    pub fn new(archive: Archive, secret_key: &SecretKey) -> Result<Envelope> {
+        // Generate a keypair
+        let keypair = SigningKey::from_bytes(secret_key);
+
+        // Convert archive to CBOR bytes for signing
+        let archive_bytes = archive.to_cbor_bytes()?;
+
+        // Sign the archive bytes
+        let signature: Signature = keypair.sign(&archive_bytes);
+
+        // Convert signature to u64
+        let sig_u64 = u64::from_le_bytes(signature.to_bytes()[..8].try_into().unwrap());
+
+        Ok(Envelope {
+            content: archive,
+            sig: Some(sig_u64),
+        })
+    }
+}
+
+pub fn generate_private_key() -> SigningKey {
+    let mut csprng = OsRng;
+    SigningKey::generate(&mut csprng)
 }
 
 pub fn now_epoch_secs() -> u64 {
