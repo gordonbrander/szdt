@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use szdat::Archive;
+use szdat::{Archive, format_key_base32, generate_private_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -26,6 +26,9 @@ enum Commands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
+
+    #[command(about = "Generate secret key")]
+    Secret {},
 }
 
 fn archive(dir: PathBuf) {
@@ -47,10 +50,17 @@ fn unarchive(file: PathBuf) {
     println!("Unarchived: {:?}", dir);
 }
 
+fn secret() {
+    let key = generate_private_key();
+    let encoded_key = format_key_base32(key);
+    println!("{}", encoded_key);
+}
+
 fn main() {
     let cli = Cli::parse();
     match cli.command {
         Commands::Archive { dir } => archive(dir),
         Commands::Unarchive { file } => unarchive(file),
+        Commands::Secret {} => secret(),
     }
 }

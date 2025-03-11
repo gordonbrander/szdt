@@ -1,4 +1,5 @@
-use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, VerifyingKey};
+use data_encoding::BASE32;
+use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_cbor;
@@ -106,16 +107,17 @@ impl Archive {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Envelope {
     pub content: Archive,
     /// Signature
-    pub sig: Option<u64>,
+    pub sig: Signature,
 }
 
 impl Envelope {
-    pub fn new(archive: Archive, secret_key: &SecretKey) -> Result<Envelope> {
+    pub fn new(archive: Archive, private_key: &SecretKey) -> Result<Envelope> {
         // Generate a keypair
-        let keypair = SigningKey::from_bytes(secret_key);
+        let keypair = SigningKey::from_bytes(private_key);
 
         // Convert archive to CBOR bytes for signing
         let archive_bytes = archive.to_cbor_bytes()?;
@@ -123,19 +125,26 @@ impl Envelope {
         // Sign the archive bytes
         let signature: Signature = keypair.sign(&archive_bytes);
 
-        // Convert signature to u64
-        let sig_u64 = u64::from_le_bytes(signature.to_bytes()[..8].try_into().unwrap());
-
         Ok(Envelope {
             content: archive,
-            sig: Some(sig_u64),
+            sig: signature,
         })
+    }
+
+    /// Write CBOR archive file
+    pub fn write_cbor<W: std::io::Write>(&self, writer: &mut W) -> Result<()> {
+        serde_cbor::to_writer(writer, self).map_err(|e| std::io::Error::other(e))
     }
 }
 
 pub fn generate_private_key() -> SigningKey {
     let mut csprng = OsRng;
     SigningKey::generate(&mut csprng)
+}
+
+pub fn format_key_base32(key: SigningKey) -> String {
+    let key_bytes = key.to_bytes().to_vec();
+    BASE32.encode(&key_bytes)
 }
 
 pub fn now_epoch_secs() -> u64 {
