@@ -1,8 +1,10 @@
 use data_encoding::BASE32;
+use ed25519_dalek::ed25519::signature::digest::consts::U9;
 use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_cbor;
+use std::collections::HashMap;
 use std::fs;
 use std::io::Result;
 use std::path::{Path, PathBuf};
@@ -107,11 +109,30 @@ impl Archive {
     }
 }
 
+/// Deserialized headers. We assign required headers to properties of the struct
+/// Additional headers go in to `other`.
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+pub struct Headers {
+    /// Content type of body
+    pub content_type: String,
+
+    /// Time at which message originated (Unix Epoch in seconds)
+    pub timestamp: u64,
+
+    /// Additional headers
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_cbor::Value>,
+}
+
+/// An envelope is the outer wrapper, containing headers and
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Envelope {
-    pub content: Archive,
-    /// Signature
-    pub sig: Signature,
+    /// Cryptographic signature
+    pub sig: Option<Vec<u8>>,
+    /// Key-value headers ()
+    pub headers: Headers,
+    /// Payload (bytes)
+    pub body: Vec<u8>,
 }
 
 impl Envelope {
