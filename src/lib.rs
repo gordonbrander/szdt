@@ -1,8 +1,7 @@
 use data_encoding::BASE32;
-use ed25519_dalek::ed25519::signature::digest::consts::U9;
 use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey};
 use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser};
 use serde_cbor;
 use std::collections::HashMap;
 use std::fs;
@@ -136,25 +135,41 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    pub fn new(archive: Archive, private_key: &SecretKey) -> Result<Envelope> {
+    pub fn new(headers: Headers, body: Vec<u8>) -> Envelope {
+        Envelope {
+            headers,
+            body,
+            sig: None,
+        }
+    }
+
+    /// Sign the archive with your private key
+    pub fn sign(self, private_key: &SecretKey) -> Result<Envelope> {
         // Generate a keypair
         let keypair = SigningKey::from_bytes(private_key);
-
-        // Convert archive to CBOR bytes for signing
-        let archive_bytes = archive.to_cbor_bytes()?;
+        let signing_bytes = self.to_signing_bytes()?;
 
         // Sign the archive bytes
-        let signature: Signature = keypair.sign(&archive_bytes);
+        let signature = keypair.sign(&signing_bytes).to_vec();
 
         Ok(Envelope {
-            content: archive,
-            sig: signature,
+            sig: Some(signature),
+            body: self.body,
+            headers: self.headers,
         })
     }
 
-    /// Write CBOR archive file
-    pub fn write_cbor<W: std::io::Write>(&self, writer: &mut W) -> Result<()> {
-        serde_cbor::to_writer(writer, self).map_err(|e| std::io::Error::other(e))
+    /// Transform envelope into signable bytes
+    pub fn to_signing_bytes(&self) -> Result<Vec<u8>> {
+        let mut output: Vec<u8> = Vec::new();
+
+        // Serialize headers
+        serde_cbor::to_writer(&mut output, &self.headers).map_err(|e| std::io::Error::other(e))?;
+
+        // Append body
+        output.extend_from_slice(&self.body);
+
+        Ok(output)
     }
 }
 
