@@ -73,17 +73,12 @@ impl Archive {
         return Archive::from_paths(dir, &paths);
     }
 
-    /// Write CBOR archive file
-    pub fn write_archive(&self, file: &Path) -> Result<()> {
-        let cbor_file = fs::File::create(file)?;
-        serde_cbor::to_writer(cbor_file, self).map_err(|e| std::io::Error::other(e))
-    }
-
-    /// Serialize the archive as CBOR and return the bytes
-    pub fn to_cbor_bytes(&self) -> Result<Vec<u8>> {
-        let mut buffer = Vec::new();
-        serde_cbor::to_writer(&mut buffer, self).map_err(|e| std::io::Error::other(e))?;
-        Ok(buffer)
+    /// Write CBOR data to a writer
+    pub fn write_to<W>(&self, writer: W) -> Result<()>
+    where
+        W: std::io::Write,
+    {
+        serde_cbor::to_writer(writer, self).map_err(|e| std::io::Error::other(e))
     }
 
     /// Write the contents of the archive to individual files in a directory
@@ -95,14 +90,6 @@ impl Archive {
             write_file_deep(&file_path, &file.content)?;
         }
         Ok(())
-    }
-
-    /// Read archive from CBOR
-    pub fn read_archive(file: &Path) -> Result<Archive> {
-        let cbor_file = fs::File::open(file)?;
-        let archive: Archive =
-            serde_cbor::from_reader(cbor_file).map_err(|e| std::io::Error::other(e))?;
-        Ok(archive)
     }
 }
 
@@ -136,7 +123,7 @@ impl Headers {
 }
 
 /// Envelope is the outer wrapper, containing headers, body, and signature
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Envelope {
     /// Cryptographic signature
     pub sig: Option<Vec<u8>>,
@@ -153,6 +140,16 @@ impl Envelope {
             body,
             sig: None,
         }
+    }
+
+    /// Read archive from CBOR
+    pub fn read_from<R>(reader: R) -> Result<Envelope>
+    where
+        R: std::io::Read,
+    {
+        let envelope: Envelope =
+            serde_cbor::from_reader(reader).map_err(|e| std::io::Error::other(e))?;
+        Ok(envelope)
     }
 
     /// Sign the archive with your private key
@@ -184,10 +181,32 @@ impl Envelope {
         serde_cbor::to_vec(&signing_data).map_err(|e| std::io::Error::other(e))
     }
 
-    /// Get the envelope as bytes, an ordered CBOR array of signature, headers, body
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let data = (&self.sig, &self.headers, &self.body);
-        serde_cbor::to_vec(&data).map_err(|e| std::io::Error::other(e))
+    pub fn write_to<W>(&self, writer: W) -> Result<()>
+    where
+        W: std::io::Write,
+    {
+        serde_cbor::to_writer(writer, self).map_err(|e| std::io::Error::other(e))
+    }
+}
+
+impl Serialize for Envelope {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (&self.sig, &self.headers, &self.body).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Envelope {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Deserialize as a tuple (signature, headers, body)
+        let (sig, headers, body) = Deserialize::deserialize(deserializer)?;
+
+        Ok(Envelope { sig, headers, body })
     }
 }
 
@@ -262,21 +281,5 @@ mod tests {
         println!("{:?}", signing_bytes);
 
         assert!(!signing_bytes.is_empty());
-    }
-
-    #[test]
-    fn test_envelope_to_bytes() {
-        let headers = Headers {
-            content_type: "application/cbor".to_string(),
-            created_at: 1234567890,
-            pubkey: None,
-            other: HashMap::new(),
-        };
-        let body = vec![1, 2, 3, 4];
-
-        let envelope = Envelope::new(headers, body);
-        let bytes = envelope.to_bytes().unwrap();
-
-        assert!(!bytes.is_empty());
     }
 }
