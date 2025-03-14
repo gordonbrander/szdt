@@ -9,6 +9,9 @@ use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// MIME type for Safe Zone Data Archives
+pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdat.szdat+cbor";
+
 /// Represents the contents of a file
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct File {
@@ -74,7 +77,7 @@ impl Archive {
     }
 
     /// Write CBOR data to a writer
-    pub fn write_to<W>(&self, writer: W) -> Result<()>
+    pub fn write_to<W>(&self, writer: &mut W) -> Result<()>
     where
         W: std::io::Write,
     {
@@ -140,6 +143,10 @@ impl Envelope {
             body,
             sig: None,
         }
+    }
+
+    pub fn of_content_type(content_type: String, body: Vec<u8>) -> Envelope {
+        Envelope::new(Headers::new(content_type), body)
     }
 
     /// Read archive from CBOR
