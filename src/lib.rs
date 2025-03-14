@@ -1,5 +1,4 @@
 use data_encoding::BASE32;
-use ed25519_dalek::ed25519::signature::Keypair;
 use ed25519_dalek::{SecretKey, Signer, SigningKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -33,16 +32,17 @@ impl File {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Archive {
-    /// A Unix timestamp representing the archive creation time
-    pub created_at: u64,
+    pub nickname: String,
     pub files: Vec<File>,
+    pub url: Vec<String>,
 }
 
 impl Archive {
     pub fn new(files: Vec<File>) -> Archive {
         Archive {
-            created_at: now_epoch_secs(),
             files,
+            url: Vec::new(),
+            nickname: String::new(),
         }
     }
 
@@ -54,10 +54,7 @@ impl Archive {
             files.push(file);
         }
 
-        Ok(Archive {
-            created_at: now_epoch_secs(),
-            files,
-        })
+        Ok(Archive::new(files))
     }
 
     /// Create an archive from the file contents of a directory
@@ -128,10 +125,10 @@ pub struct Headers {
 }
 
 impl Headers {
-    pub fn new(content_type: String, created_at: u64) -> Headers {
+    pub fn new(content_type: String) -> Headers {
         Headers {
             content_type,
-            created_at,
+            created_at: now_epoch_secs(),
             pubkey: None,
             other: HashMap::new(),
         }
@@ -225,11 +222,7 @@ mod tests {
 
     #[test]
     fn test_envelope_creation() {
-        let headers = Headers {
-            content_type: "application/cbor".to_string(),
-            created_at: now_epoch_secs(),
-            other: HashMap::new(),
-        };
+        let headers = Headers::new("application/cbor".to_string());
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body.clone());
@@ -241,11 +234,7 @@ mod tests {
 
     #[test]
     fn test_envelope_signing() {
-        let headers = Headers {
-            content_type: "application/cbor".to_string(),
-            created_at: now_epoch_secs(),
-            other: HashMap::new(),
-        };
+        let headers = Headers::new("application/cbor".to_string());
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
@@ -262,6 +251,7 @@ mod tests {
         let headers = Headers {
             content_type: "application/cbor".to_string(),
             created_at: 1234567890,
+            pubkey: None,
             other: HashMap::new(),
         };
         let body = vec![1, 2, 3, 4];
@@ -279,6 +269,7 @@ mod tests {
         let headers = Headers {
             content_type: "application/cbor".to_string(),
             created_at: 1234567890,
+            pubkey: None,
             other: HashMap::new(),
         };
         let body = vec![1, 2, 3, 4];
