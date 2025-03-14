@@ -1,7 +1,7 @@
 use data_encoding::BASE32;
-use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey};
+use ed25519_dalek::{SecretKey, Signer, SigningKey};
 use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize, ser};
+use serde::{Deserialize, Serialize};
 use serde_cbor;
 use std::collections::HashMap;
 use std::fs;
@@ -128,7 +128,7 @@ pub struct Headers {
 pub struct Envelope {
     /// Cryptographic signature
     pub sig: Option<Vec<u8>>,
-    /// Key-value headers ()
+    /// Key-value headers
     pub headers: Headers,
     /// Payload (bytes)
     pub body: Vec<u8>,
@@ -159,17 +159,18 @@ impl Envelope {
         })
     }
 
-    /// Transform envelope into signable bytes
+    /// Get the bytes to be signed, an ordered CBOR array of headers and body
     pub fn to_signing_bytes(&self) -> Result<Vec<u8>> {
-        let mut output: Vec<u8> = Vec::new();
+        // First headers, then body
+        let signing_data = (&self.headers, &self.body);
+        // Serialize to CBOR bytes
+        serde_cbor::to_vec(&signing_data).map_err(|e| std::io::Error::other(e))
+    }
 
-        // Serialize headers
-        serde_cbor::to_writer(&mut output, &self.headers).map_err(|e| std::io::Error::other(e))?;
-
-        // Append body
-        output.extend_from_slice(&self.body);
-
-        Ok(output)
+    /// Get the envelope as bytes, an ordered CBOR array of signature, headers, body
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        let data = (&self.sig, &self.headers, &self.body);
+        serde_cbor::to_vec(&data).map_err(|e| std::io::Error::other(e))
     }
 }
 
