@@ -1,4 +1,5 @@
 use data_encoding::BASE32;
+use ed25519_dalek::ed25519::signature::Keypair;
 use ed25519_dalek::{SecretKey, Signer, SigningKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -116,14 +117,28 @@ pub struct Headers {
     pub content_type: String,
 
     /// Time at which message originated (Unix Epoch in seconds)
-    pub timestamp: u64,
+    pub created_at: u64,
+
+    /// Public key of sender
+    pub pubkey: Option<Vec<u8>>,
 
     /// Additional headers
     #[serde(flatten)]
     pub other: HashMap<String, serde_cbor::Value>,
 }
 
-/// An envelope is the outer wrapper, containing headers and
+impl Headers {
+    pub fn new(content_type: String, created_at: u64) -> Headers {
+        Headers {
+            content_type,
+            created_at,
+            pubkey: None,
+            other: HashMap::new(),
+        }
+    }
+}
+
+/// Envelope is the outer wrapper, containing headers, body, and signature
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Envelope {
     /// Cryptographic signature
@@ -144,12 +159,17 @@ impl Envelope {
     }
 
     /// Sign the archive with your private key
-    pub fn sign(self, private_key: &SecretKey) -> Result<Envelope> {
+    pub fn sign(mut self, private_key: &SecretKey) -> Result<Envelope> {
         // Generate a keypair
         let keypair = SigningKey::from_bytes(private_key);
+
+        // Assign pubkey to headers
+        self.headers.pubkey = Some(keypair.verifying_key().to_bytes().to_vec());
+
+        // Get bytes for signing
         let signing_bytes = self.to_signing_bytes()?;
 
-        // Sign the archive bytes
+        // Sign the bytes
         let signature = keypair.sign(&signing_bytes).to_vec();
 
         Ok(Envelope {
@@ -202,4 +222,70 @@ pub fn write_file_deep(path: &Path, content: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_envelope_creation() {
+        let headers = Headers {
+            content_type: "application/cbor".to_string(),
+            created_at: now_epoch_secs(),
+            other: HashMap::new(),
+        };
+        let body = vec![1, 2, 3, 4];
+
+        let envelope = Envelope::new(headers, body.clone());
+
+        assert_eq!(envelope.sig, None);
+        assert_eq!(envelope.body, body);
+        assert_eq!(envelope.headers.content_type, "application/cbor");
+    }
+
+    #[test]
+    fn test_envelope_signing() {
+        let headers = Headers {
+            content_type: "application/cbor".to_string(),
+            created_at: now_epoch_secs(),
+            other: HashMap::new(),
+        };
+        let body = vec![1, 2, 3, 4];
+
+        let envelope = Envelope::new(headers, body);
+        let private_key = generate_private_key();
+        let secret_key = private_key.to_bytes();
+
+        let signed_envelope = envelope.sign(&secret_key).unwrap();
+
+        assert!(signed_envelope.sig.is_some());
+    }
+
+    #[test]
+    fn test_envelope_to_signing_bytes() {
+        let headers = Headers {
+            content_type: "application/cbor".to_string(),
+            created_at: 1234567890,
+            other: HashMap::new(),
+        };
+        let body = vec![1, 2, 3, 4];
+
+        let envelope = Envelope::new(headers, body);
+        let signing_bytes = envelope.to_signing_bytes().unwrap();
+
+        println!("{:?}", signing_bytes);
+
+        assert!(!signing_bytes.is_empty());
+    }
+
+    #[test]
+    fn test_envelope_to_bytes() {
+        let headers = Headers {
+            content_type: "application/cbor".to_string(),
+            created_at: 1234567890,
+            other: HashMap::new(),
+        };
+        let body = vec![1, 2, 3, 4];
+
+        let envelope = Envelope::new(headers, body);
+        let bytes = envelope.to_bytes().unwrap();
+
+        assert!(!bytes.is_empty());
+    }
 }
