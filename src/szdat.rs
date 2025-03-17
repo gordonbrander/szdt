@@ -204,7 +204,7 @@ impl Envelope {
 
     /// Verify the envelope with a public key.
     /// Returns a new Envelope with the signature and public key set.
-    pub fn verify(&self, public_key: &VerifyingKey) -> Result<()> {
+    pub fn verify_with_key(&self, verifying_key: &VerifyingKey) -> Result<()> {
         let Some(sig) = &self.sig else {
             return Err(Error::new("No signature", ErrorKind::SignatureError));
         };
@@ -222,13 +222,30 @@ impl Envelope {
         let signing_bytes = self.to_signing_bytes()?;
 
         // Verify the signature
-        match public_key.verify(&signing_bytes, &signature) {
+        match verifying_key.verify(&signing_bytes, &signature) {
             Ok(()) => Ok(()),
             Err(_) => Err(Error::new(
                 "Signature didn't verify",
                 ErrorKind::SignatureError,
             )),
         }
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        // Get public key from headers
+        let Some(pubkey) = &self.headers.pubkey else {
+            return Err(Error::new("Missing public key", ErrorKind::ValidationError));
+        };
+
+        let Ok(pubkey_slice) = pubkey.as_slice().try_into() else {
+            return Err(Error::new(
+                "Invalid public key bytes",
+                ErrorKind::DecodingError,
+            ));
+        };
+
+        let verifying_key = VerifyingKey::from_bytes(pubkey_slice)?;
+        self.verify_with_key(&verifying_key)
     }
 
     /// Deserialize the body of the envelope into a given type
@@ -280,7 +297,7 @@ pub fn decode_base32(key: &str) -> Result<SecretKey> {
     let Ok(secret_key) = key_bytes.try_into() else {
         return Err(Error::new(
             "Could not decode bytes into valid key bytes",
-            ErrorKind::EncodingError,
+            ErrorKind::DecodingError,
         ));
     };
     Ok(secret_key)
@@ -390,14 +407,14 @@ mod tests {
         let signed_envelope = envelope.sign(&secret_key).unwrap();
 
         // Verify the signature with the correct public key
-        let verification_result = signed_envelope.verify(&verifying_key);
+        let verification_result = signed_envelope.verify_with_key(&verifying_key);
         assert!(verification_result.is_ok());
 
         // Try to verify with a different public key
         let different_secret_key = generate_secret_key();
         let different_signing_key = SigningKey::from_bytes(&different_secret_key);
         let different_verifying_key = different_signing_key.verifying_key();
-        let wrong_verification = signed_envelope.verify(&different_verifying_key);
+        let wrong_verification = signed_envelope.verify_with_key(&different_verifying_key);
         assert!(wrong_verification.is_err());
 
         // Test envelope with no signature
@@ -405,7 +422,7 @@ mod tests {
             Headers::new("application/cbor".to_string()),
             vec![5, 6, 7, 8],
         );
-        let result = unsigned_envelope.verify(&verifying_key);
+        let result = unsigned_envelope.verify_with_key(&verifying_key);
         assert!(result.is_err());
     }
 }

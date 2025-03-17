@@ -1,3 +1,10 @@
+## TODO
+
+- [x] Serialize/deserialize CBOR
+- [x] Signing / verification
+    - [x] Ed25519
+- [ ] CLI
+  - Rountrip signed envelope + archive
 
 ## Development
 

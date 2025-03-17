@@ -17,7 +17,8 @@ impl Error {
 pub enum ErrorKind {
     IoError(std::io::Error),
     SerializationError(serde_cbor::Error),
-    EncodingError,
+    Ed25519Error(ed25519_dalek::ed25519::Error),
+    DecodingError,
     ValidationError,
     SignatureError,
 }
@@ -52,7 +53,16 @@ impl From<data_encoding::DecodeError> for Error {
     fn from(error: data_encoding::DecodeError) -> Self {
         Error {
             msg: error.to_string(),
-            kind: ErrorKind::EncodingError,
+            kind: ErrorKind::DecodingError,
+        }
+    }
+}
+
+impl From<ed25519_dalek::ed25519::Error> for Error {
+    fn from(error: ed25519_dalek::ed25519::Error) -> Self {
+        Error {
+            msg: error.to_string(),
+            kind: ErrorKind::Ed25519Error(error),
         }
     }
 }
