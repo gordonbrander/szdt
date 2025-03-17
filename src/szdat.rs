@@ -270,9 +270,20 @@ pub fn generate_secret_key() -> SecretKey {
 }
 
 /// Format a key as a base32 string
-pub fn format_key_base32(key: SecretKey) -> String {
+pub fn encode_base32(key: SecretKey) -> String {
     let key_bytes = key.to_vec();
     BASE32.encode(&key_bytes)
+}
+
+pub fn decode_base32(key: &str) -> Result<SecretKey> {
+    let key_bytes = BASE32.decode(key.as_bytes())?;
+    let Ok(secret_key) = key_bytes.try_into() else {
+        return Err(Error::new(
+            "Could not decode bytes into valid key bytes",
+            ErrorKind::EncodingError,
+        ));
+    };
+    Ok(secret_key)
 }
 
 /// Get the current epoch time in seconds

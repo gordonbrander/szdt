@@ -17,6 +17,7 @@ impl Error {
 pub enum ErrorKind {
     IoError(std::io::Error),
     SerializationError(serde_cbor::Error),
+    EncodingError,
     ValidationError,
     SignatureError,
 }
@@ -43,6 +44,15 @@ impl From<serde_cbor::Error> for Error {
         Error {
             msg: error.to_string(),
             kind: ErrorKind::SerializationError(error),
+        }
+    }
+}
+
+impl From<data_encoding::DecodeError> for Error {
+    fn from(error: data_encoding::DecodeError) -> Self {
+        Error {
+            msg: error.to_string(),
+            kind: ErrorKind::EncodingError,
         }
     }
 }
