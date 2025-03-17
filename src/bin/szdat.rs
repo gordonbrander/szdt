@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::PathBuf;
 use szdat::szdat::{
-    ARCHIVE_CONTENT_TYPE, Archive, Envelope, format_key_base32, generate_private_key,
+    ARCHIVE_CONTENT_TYPE, Archive, Envelope, format_key_base32, generate_secret_key,
 };
 
 #[derive(Parser)]
@@ -66,7 +66,7 @@ fn unarchive(file_path: PathBuf) {
 }
 
 fn secret() {
-    let key = generate_private_key();
+    let key = generate_secret_key();
     let encoded_key = format_key_base32(key);
     println!("{}", encoded_key);
 }
