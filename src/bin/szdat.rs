@@ -1,6 +1,9 @@
 use clap::{Parser, Subcommand};
+use std::fs::File;
 use std::path::PathBuf;
-use szdat::{Archive, format_key_base32, generate_private_key};
+use szdat::szdat::{
+    ARCHIVE_CONTENT_TYPE, Archive, Envelope, format_key_base32, generate_private_key,
+};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -33,16 +36,28 @@ enum Commands {
 
 fn archive(dir: PathBuf) {
     let archive = Archive::from_dir(&dir).expect("Should be able to read directory");
-    let output_path = dir.with_extension("szdat");
+    let mut body = Vec::new();
     archive
-        .write_archive(&output_path)
-        .expect("Should be able to write archive file");
+        .write_cbor_to(&mut body)
+        .expect("Should be able to write body to vec");
+
+    let envelope = Envelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body);
+    let output_path = dir.with_extension("szdat");
+    let file = File::create(&output_path).expect("Should be able to create file");
+    envelope
+        .write_cbor_to(file)
+        .expect("Should be able to write to file");
     println!("Archived: {:?}", output_path);
 }
 
-fn unarchive(file: PathBuf) {
-    let archive = Archive::read_archive(&file).expect("Should be able to read archive");
-    let dir = file.with_extension("");
+fn unarchive(file_path: PathBuf) {
+    let file = File::open(&file_path).expect("Should be able to open file");
+    let envelope = Envelope::read_cbor_from(file).expect("Should be able to read envelope");
+    let archive: Archive = envelope
+        .deserialize_body()
+        .expect("Should be able to deserialize archive");
+
+    let dir = file_path.with_extension("");
     archive
         .write_archive_contents(&dir)
         .expect("Should be able to write unarchived files");
