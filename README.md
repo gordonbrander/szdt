@@ -1,10 +1,23 @@
 ## TODO
 
-- [x] Serialize/deserialize CBOR
-- [x] Signing / verification
-    - [x] Ed25519
+- [ ] Envelope
+  - [x] Serialize/deserialize CBOR
+  - [x] Serialize/deserialize body
+  - [x] Signing / verification
+      - [x] Ed25519
+- [ ] Archive
+  - [x] Serialize/deserialize CBOR
+  - [ ] Inlined Files
+  - [ ] Links
+  - [ ] Validate checksums
+  - [ ] Metadata
+  - [ ] update URLs
 - [ ] CLI
-  - Rountrip signed envelope + archive
+  - [x] Generate key
+  - [x] Rountrip envelope + archive
+  - [x] Rountrip signed envelope + archive
+  - [ ] Choose archive file name
+  - [ ] Create from folder + manifest
 
 ## Development
 
