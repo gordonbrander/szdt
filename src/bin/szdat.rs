@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::PathBuf;
-use szdat::szdat::{ARCHIVE_CONTENT_TYPE, Archive, Envelope, encode_base32, generate_secret_key};
+use szdat::archive::{ARCHIVE_CONTENT_TYPE, Archive};
+use szdat::envelope::{Envelope, encode_base32, generate_secret_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
