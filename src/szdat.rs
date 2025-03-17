@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 use data_encoding::BASE32;
 use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
@@ -206,14 +206,11 @@ impl Envelope {
     /// Returns a new Envelope with the signature and public key set.
     pub fn verify_with_key(&self, verifying_key: &VerifyingKey) -> Result<()> {
         let Some(sig) = &self.sig else {
-            return Err(Error::new("No signature", ErrorKind::SignatureError));
+            return Err(Error::SignatureError("No signature".to_string()));
         };
 
         let Ok(sig_bytes) = sig.as_slice().try_into() else {
-            return Err(Error::new(
-                "Invalid signature bytes",
-                ErrorKind::SignatureError,
-            ));
+            return Err(Error::SignatureError("Invalid signature bytes".to_string()));
         };
 
         let signature = Signature::from_bytes(sig_bytes);
@@ -224,24 +221,18 @@ impl Envelope {
         // Verify the signature
         match verifying_key.verify(&signing_bytes, &signature) {
             Ok(()) => Ok(()),
-            Err(_) => Err(Error::new(
-                "Signature didn't verify",
-                ErrorKind::SignatureError,
-            )),
+            Err(_) => Err(Error::SignatureError("Signature didn't verify".to_string())),
         }
     }
 
     pub fn verify(&self) -> Result<()> {
         // Get public key from headers
         let Some(pubkey) = &self.headers.pubkey else {
-            return Err(Error::new("Missing public key", ErrorKind::ValidationError));
+            return Err(Error::ValidationError("Missing public key".to_string()));
         };
 
         let Ok(pubkey_slice) = pubkey.as_slice().try_into() else {
-            return Err(Error::new(
-                "Invalid public key bytes",
-                ErrorKind::DecodingError,
-            ));
+            return Err(Error::DecodingError("Invalid public key bytes".to_string()));
         };
 
         let verifying_key = VerifyingKey::from_bytes(pubkey_slice)?;
@@ -295,9 +286,8 @@ pub fn encode_base32(key: SecretKey) -> String {
 pub fn decode_base32(key: &str) -> Result<SecretKey> {
     let key_bytes = BASE32.decode(key.as_bytes())?;
     let Ok(secret_key) = key_bytes.try_into() else {
-        return Err(Error::new(
-            "Could not decode bytes into valid key bytes",
-            ErrorKind::DecodingError,
+        return Err(Error::DecodingError(
+            "Could not decode bytes into valid key bytes".to_string(),
         ));
     };
     Ok(secret_key)
@@ -394,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn test_envelope_verification() {
+    fn test_envelope_verification_with_key() {
         let headers = Headers::new("application/cbor".to_string());
         let body = vec![1, 2, 3, 4];
 
@@ -424,5 +414,21 @@ mod tests {
         );
         let result = unsigned_envelope.verify_with_key(&verifying_key);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_envelope_verification_with_header_pubkey() {
+        let headers = Headers::new("application/cbor".to_string());
+        let body = vec![1, 2, 3, 4];
+
+        let envelope = Envelope::new(headers, body);
+        let secret_key = generate_secret_key();
+
+        // Sign the envelope
+        let signed_envelope = envelope.sign(&secret_key).unwrap();
+
+        // Verify the signature with the correct public key
+        let verification_result = signed_envelope.verify();
+        assert!(verification_result.is_ok());
     }
 }

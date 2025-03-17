@@ -1,69 +1,60 @@
 #[derive(Debug)]
-pub struct Error {
-    pub msg: String,
-    pub kind: ErrorKind,
+pub enum Error {
+    IoError(String, std::io::Error),
+    SerializationError(String, serde_cbor::Error),
+    Ed25519Error(String, ed25519_dalek::ed25519::Error),
+    DecodingError(String),
+    ValidationError(String),
+    SignatureError(String),
 }
 
-impl Error {
-    pub fn new<S: Into<String>>(msg: S, kind: ErrorKind) -> Self {
-        Error {
-            msg: msg.into(),
-            kind,
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::IoError(_, err) => Some(err),
+            Error::SerializationError(_, err) => Some(err),
+            Error::Ed25519Error(_, err) => Some(err),
+            Error::DecodingError(_) => None,
+            Error::ValidationError(_) => None,
+            Error::SignatureError(_) => None,
         }
     }
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    IoError(std::io::Error),
-    SerializationError(serde_cbor::Error),
-    Ed25519Error(ed25519_dalek::ed25519::Error),
-    DecodingError,
-    ValidationError,
-    SignatureError,
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {:?}", self.msg, self.kind)
+        match self {
+            Error::IoError(msg, _) => write!(f, "IO error: {}", msg),
+            Error::SerializationError(msg, _) => write!(f, "Serialization error: {}", msg),
+            Error::Ed25519Error(msg, _) => write!(f, "Ed25519 error: {}", msg),
+            Error::DecodingError(msg) => write!(f, "Decoding error: {}", msg),
+            Error::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            Error::SignatureError(msg) => write!(f, "Signature error: {}", msg),
+        }
     }
 }
 
-impl std::error::Error for Error {}
-
 impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Error {
-            msg: error.to_string(),
-            kind: ErrorKind::IoError(error),
-        }
+    fn from(err: std::io::Error) -> Self {
+        Error::IoError(err.to_string(), err)
     }
 }
 
 impl From<serde_cbor::Error> for Error {
-    fn from(error: serde_cbor::Error) -> Self {
-        Error {
-            msg: error.to_string(),
-            kind: ErrorKind::SerializationError(error),
-        }
+    fn from(err: serde_cbor::Error) -> Self {
+        Error::SerializationError(err.to_string(), err)
     }
 }
 
 impl From<data_encoding::DecodeError> for Error {
-    fn from(error: data_encoding::DecodeError) -> Self {
-        Error {
-            msg: error.to_string(),
-            kind: ErrorKind::DecodingError,
-        }
+    fn from(err: data_encoding::DecodeError) -> Self {
+        Error::DecodingError(err.to_string())
     }
 }
 
 impl From<ed25519_dalek::ed25519::Error> for Error {
-    fn from(error: ed25519_dalek::ed25519::Error) -> Self {
-        Error {
-            msg: error.to_string(),
-            kind: ErrorKind::Ed25519Error(error),
-        }
+    fn from(err: ed25519_dalek::ed25519::Error) -> Self {
+        Error::Ed25519Error(err.to_string(), err)
     }
 }
 
