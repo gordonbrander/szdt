@@ -104,7 +104,7 @@ pub fn write_file_deep(path: &Path, content: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::{Envelope, Headers, SigningKey, generate_secret_key};
+    use crate::envelope::{Envelope, Headers, SigningKey, generate_private_key};
 
     #[test]
     fn test_envelope_archive_serialization_deserialization() {
@@ -139,20 +139,20 @@ mod tests {
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
-        let secret_key = generate_secret_key();
-        let signing_key = SigningKey::from_bytes(&secret_key);
+        let private_key = generate_private_key();
+        let signing_key = SigningKey::from_bytes(&private_key);
         let verifying_key = signing_key.verifying_key();
 
         // Sign the envelope
-        let signed_envelope = envelope.sign(&secret_key).unwrap();
+        let signed_envelope = envelope.sign(&private_key).unwrap();
 
         // Verify the signature with the correct public key
         let verification_result = signed_envelope.verify_with_key(&verifying_key);
         assert!(verification_result.is_ok());
 
         // Try to verify with a different public key
-        let different_secret_key = generate_secret_key();
-        let different_signing_key = SigningKey::from_bytes(&different_secret_key);
+        let different_private_key = generate_private_key();
+        let different_signing_key = SigningKey::from_bytes(&different_private_key);
         let different_verifying_key = different_signing_key.verifying_key();
         let wrong_verification = signed_envelope.verify_with_key(&different_verifying_key);
         assert!(wrong_verification.is_err());
@@ -172,10 +172,10 @@ mod tests {
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
-        let secret_key = generate_secret_key();
+        let private_key = generate_private_key();
 
         // Sign the envelope
-        let signed_envelope = envelope.sign(&secret_key).unwrap();
+        let signed_envelope = envelope.sign(&private_key).unwrap();
 
         // Verify the signature with the correct public key
         let verification_result = signed_envelope.verify();

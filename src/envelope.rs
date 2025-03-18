@@ -93,9 +93,9 @@ impl Envelope {
 
     /// Sign the archive with your private key.
     /// Returns a new Envelope with the signature and public key set.
-    pub fn sign(mut self, secret_key: &SecretKey) -> Result<Envelope> {
+    pub fn sign(mut self, private_key: &SecretKey) -> Result<Envelope> {
         // Generate a keypair
-        let keypair = SigningKey::from_bytes(secret_key);
+        let keypair = SigningKey::from_bytes(private_key);
 
         // Assign pubkey to headers
         self.headers.pubkey = Some(keypair.verifying_key().to_bytes().to_vec());
@@ -183,7 +183,7 @@ impl<'de> Deserialize<'de> for Envelope {
 }
 
 /// Generate a new private key
-pub fn generate_secret_key() -> SecretKey {
+pub fn generate_private_key() -> SecretKey {
     let mut csprng = OsRng;
     SigningKey::generate(&mut csprng).to_bytes()
 }
@@ -196,12 +196,12 @@ pub fn encode_base32(key: SecretKey) -> String {
 
 pub fn decode_base32(key: &str) -> Result<SecretKey> {
     let key_bytes = BASE32.decode(key.as_bytes())?;
-    let Ok(secret_key) = key_bytes.try_into() else {
+    let Ok(private_key) = key_bytes.try_into() else {
         return Err(Error::DecodingError(
             "Could not decode bytes into valid key bytes".to_string(),
         ));
     };
-    Ok(secret_key)
+    Ok(private_key)
 }
 
 /// Get the current epoch time in seconds
@@ -234,8 +234,8 @@ mod tests {
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
-        let secret_key = generate_secret_key();
-        let signed_envelope = envelope.sign(&secret_key).unwrap();
+        let private_key = generate_private_key();
+        let signed_envelope = envelope.sign(&private_key).unwrap();
 
         assert!(signed_envelope.sig.is_some());
     }
@@ -264,20 +264,20 @@ mod tests {
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
-        let secret_key = generate_secret_key();
-        let signing_key = SigningKey::from_bytes(&secret_key);
+        let private_key = generate_private_key();
+        let signing_key = SigningKey::from_bytes(&private_key);
         let verifying_key = signing_key.verifying_key();
 
         // Sign the envelope
-        let signed_envelope = envelope.sign(&secret_key).unwrap();
+        let signed_envelope = envelope.sign(&private_key).unwrap();
 
         // Verify the signature with the correct public key
         let verification_result = signed_envelope.verify_with_key(&verifying_key);
         assert!(verification_result.is_ok());
 
         // Try to verify with a different public key
-        let different_secret_key = generate_secret_key();
-        let different_signing_key = SigningKey::from_bytes(&different_secret_key);
+        let different_private_key = generate_private_key();
+        let different_signing_key = SigningKey::from_bytes(&different_private_key);
         let different_verifying_key = different_signing_key.verifying_key();
         let wrong_verification = signed_envelope.verify_with_key(&different_verifying_key);
         assert!(wrong_verification.is_err());
@@ -297,10 +297,10 @@ mod tests {
         let body = vec![1, 2, 3, 4];
 
         let envelope = Envelope::new(headers, body);
-        let secret_key = generate_secret_key();
+        let private_key = generate_private_key();
 
         // Sign the envelope
-        let signed_envelope = envelope.sign(&secret_key).unwrap();
+        let signed_envelope = envelope.sign(&private_key).unwrap();
 
         // Verify the signature with the correct public key
         let verification_result = signed_envelope.verify();

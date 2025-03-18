@@ -2,12 +2,12 @@ use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::PathBuf;
 use szdat::archive::{ARCHIVE_CONTENT_TYPE, Archive};
-use szdat::envelope::{Envelope, decode_base32, encode_base32, generate_secret_key};
+use szdat::envelope::{Envelope, decode_base32, encode_base32, generate_private_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
 #[command(author = "szdat")]
-#[command(about = "Simple censorship-resistant publishing and archiving")]
+#[command(about = "Censorship-resistant publishing and archiving")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -28,30 +28,30 @@ enum Commands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
 
-        #[arg(help = "Secret key to sign archive with")]
+        #[arg(help = "Private key to sign archive with")]
         #[arg(
-            long_help = "Secret key to sign archive with. The secret key should be a Base-32 encoded Ed25519 key. You can generate a key using the `secret` command.)"
+            long_help = "Private key to sign archive with. The private key should be a Base-32 encoded Ed25519 key. You can generate a key using the `genkey` command.)"
         )]
         #[arg(short, long)]
-        #[arg(value_name = "SECRET")]
-        secret: String,
+        #[arg(value_name = "KEY")]
+        privkey: String,
     },
 
-    #[command(about = "Generate secret key")]
-    Secret {},
+    #[command(about = "Generate a private key")]
+    Genkey {},
 }
 
-fn archive(dir: PathBuf, secret_key: String) {
+fn archive(dir: PathBuf, private_key: String) {
     let archive = Archive::from_dir(&dir).expect("Should be able to read directory");
     let mut body = Vec::new();
     archive
         .write_cbor_to(&mut body)
         .expect("Should be able to write body to vec");
 
-    let secret_key_bytes = decode_base32(&secret_key).expect("Invalid secret key");
+    let private_key_bytes = decode_base32(&private_key).expect("Invalid private key");
 
     let envelope = Envelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body)
-        .sign(&secret_key_bytes)
+        .sign(&private_key_bytes)
         .expect("Unable to sign envelope");
 
     let output_path = dir.with_extension("szdat");
@@ -83,8 +83,8 @@ fn unarchive(file_path: PathBuf) {
     println!("Unarchived: {:?}", dir);
 }
 
-fn secret() {
-    let key = generate_secret_key();
+fn genkey() {
+    let key = generate_private_key();
     let encoded_key = encode_base32(key);
     println!("{}", encoded_key);
 }
@@ -92,11 +92,8 @@ fn secret() {
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Archive {
-            dir,
-            secret: secret_key,
-        } => archive(dir, secret_key),
+        Commands::Archive { dir, privkey } => archive(dir, privkey),
         Commands::Unarchive { file } => unarchive(file),
-        Commands::Secret {} => secret(),
+        Commands::Genkey {} => genkey(),
     }
 }
