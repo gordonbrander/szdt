@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdat.szdat+cbor";
 
 /// Represents the contents of a file
+/// The file is inlined as bytes into the archive.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct File {
     /// Suggested path for this file
@@ -26,6 +27,33 @@ impl File {
         let content = std::fs::read(file_path)?;
         return Ok(File::new(path.to_path_buf(), content));
     }
+}
+
+/// A link to an external resource that can be found in one or more locations.
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Link {
+    /// Suggested path for this link
+    pub path: PathBuf,
+    /// One or more URLs where the file may be found
+    pub url: Vec<String>,
+    pub checksum: Vec<u8>,
+}
+
+impl Link {
+    pub fn new(path: PathBuf, url: Vec<String>, checksum: Vec<u8>) -> Link {
+        Link {
+            path,
+            url,
+            checksum,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[serde(tag = "type")]
+pub enum FileKind {
+    File(File),
+    Link(Link),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
