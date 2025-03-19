@@ -5,9 +5,10 @@
   - [x] Serialize/deserialize body
   - [x] Signing / verification
       - [x] Ed25519
+  - [ ] `did:key`
 - [ ] Archive
   - [x] Serialize/deserialize CBOR
-  - [ ] Inlined Files
+  - [x] Inlined Files
   - [ ] Links
   - [ ] Validate checksums
   - [ ] Metadata

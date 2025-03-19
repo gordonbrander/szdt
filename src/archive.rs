@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdat.szdat+cbor";
 
 /// Represents the contents of a file
+/// The file is inlined as bytes into the archive.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct File {
     /// Suggested path for this file
@@ -28,18 +29,45 @@ impl File {
     }
 }
 
+/// A link to an external resource that can be found in one or more locations.
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Link {
+    /// Suggested path for this link
+    pub path: PathBuf,
+    /// One or more URLs where the file may be found
+    pub urls: Vec<String>,
+    pub checksum: Vec<u8>,
+}
+
+impl Link {
+    pub fn new(path: PathBuf, url: Vec<String>, checksum: Vec<u8>) -> Link {
+        Link {
+            path,
+            urls: url,
+            checksum,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[serde(tag = "type")]
+pub enum FileKind {
+    File(File),
+    Link(Link),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Archive {
     pub nickname: String,
     pub files: Vec<File>,
-    pub url: Vec<String>,
+    pub urls: Vec<String>,
 }
 
 impl Archive {
     pub fn new(files: Vec<File>) -> Archive {
         Archive {
             files,
-            url: Vec::new(),
+            urls: Vec::new(),
             nickname: String::new(),
         }
     }
@@ -116,7 +144,7 @@ mod tests {
         let original_archive = Archive {
             nickname: "Test Archive".to_string(),
             files: vec![file1, file2],
-            url: vec!["https://example.com/archive".to_string()],
+            urls: vec!["https://example.com/archive".to_string()],
         };
 
         // Serialize the archive to CBOR

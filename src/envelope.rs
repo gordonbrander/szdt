@@ -189,12 +189,12 @@ pub fn generate_private_key() -> SecretKey {
 }
 
 /// Format a key as a base32 string
-pub fn encode_base32(key: SecretKey) -> String {
+pub fn encode_key(key: SecretKey) -> String {
     let key_bytes = key.to_vec();
     BASE32.encode(&key_bytes)
 }
 
-pub fn decode_base32(key: &str) -> Result<SecretKey> {
+pub fn decode_key(key: &str) -> Result<SecretKey> {
     let key_bytes = BASE32.decode(key.as_bytes())?;
     let Ok(private_key) = key_bytes.try_into() else {
         return Err(Error::DecodingError(
@@ -305,5 +305,21 @@ mod tests {
         // Verify the signature with the correct public key
         let verification_result = signed_envelope.verify();
         assert!(verification_result.is_ok());
+    }
+
+    #[test]
+    fn test_encode_decode_key() {
+        // Generate a private key
+        let private_key = generate_private_key();
+
+        // Encode the key
+        let encoded = encode_key(private_key.clone());
+
+        // Check that encoded key is equal to base32
+        assert_eq!(encoded, BASE32.encode(&private_key));
+
+        // Verify we can decode it back
+        let decoded = decode_key(&encoded).unwrap();
+        assert_eq!(decoded, private_key);
     }
 }
