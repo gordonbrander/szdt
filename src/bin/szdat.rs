@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::PathBuf;
 use szdat::archive::{ARCHIVE_CONTENT_TYPE, Archive};
-use szdat::envelope::{Envelope, decode_base32, encode_base32, generate_private_key};
+use szdat::envelope::{Envelope, decode_key, encode_key, generate_private_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -48,7 +48,7 @@ fn archive(dir: PathBuf, private_key: String) {
         .write_cbor_to(&mut body)
         .expect("Should be able to write body to vec");
 
-    let private_key_bytes = decode_base32(&private_key).expect("Invalid private key");
+    let private_key_bytes = decode_key(&private_key).expect("Invalid private key");
 
     let envelope = Envelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body)
         .sign(&private_key_bytes)
@@ -85,7 +85,7 @@ fn unarchive(file_path: PathBuf) {
 
 fn genkey() {
     let key = generate_private_key();
-    let encoded_key = encode_base32(key);
+    let encoded_key = encode_key(key);
     println!("{}", encoded_key);
 }
 
