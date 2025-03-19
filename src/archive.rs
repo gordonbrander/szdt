@@ -35,7 +35,7 @@ pub struct Link {
     /// Suggested path for this link
     pub path: PathBuf,
     /// One or more URLs where the file may be found
-    pub url: Vec<String>,
+    pub urls: Vec<String>,
     pub checksum: Vec<u8>,
 }
 
@@ -43,7 +43,7 @@ impl Link {
     pub fn new(path: PathBuf, url: Vec<String>, checksum: Vec<u8>) -> Link {
         Link {
             path,
-            url,
+            urls: url,
             checksum,
         }
     }
@@ -60,14 +60,14 @@ pub enum FileKind {
 pub struct Archive {
     pub nickname: String,
     pub files: Vec<File>,
-    pub url: Vec<String>,
+    pub urls: Vec<String>,
 }
 
 impl Archive {
     pub fn new(files: Vec<File>) -> Archive {
         Archive {
             files,
-            url: Vec::new(),
+            urls: Vec::new(),
             nickname: String::new(),
         }
     }
@@ -144,7 +144,7 @@ mod tests {
         let original_archive = Archive {
             nickname: "Test Archive".to_string(),
             files: vec![file1, file2],
-            url: vec!["https://example.com/archive".to_string()],
+            urls: vec!["https://example.com/archive".to_string()],
         };
 
         // Serialize the archive to CBOR
