@@ -6,6 +6,7 @@ pub enum Error {
     DecodingError(String),
     ValidationError(String),
     SignatureError(String),
+    ValueError(String),
 }
 
 impl std::error::Error for Error {
@@ -17,6 +18,7 @@ impl std::error::Error for Error {
             Error::DecodingError(_) => None,
             Error::ValidationError(_) => None,
             Error::SignatureError(_) => None,
+            Error::ValueError(_) => None,
         }
     }
 }
@@ -30,6 +32,7 @@ impl std::fmt::Display for Error {
             Error::DecodingError(msg) => write!(f, "Decoding error: {}", msg),
             Error::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             Error::SignatureError(msg) => write!(f, "Signature error: {}", msg),
+            Error::ValueError(msg) => write!(f, "Value error: {}", msg),
         }
     }
 }
