@@ -4,8 +4,8 @@ use serde_cbor;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// MIME type for Safe Zone Data Archives
-pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdat.szdat+cbor";
+/// MIME type for SZDT Archives
+pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdt.szdt+cbor";
 
 /// Represents the contents of a file
 /// The file is inlined as bytes into the archive.

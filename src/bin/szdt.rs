@@ -1,12 +1,12 @@
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::PathBuf;
-use szdat::archive::{ARCHIVE_CONTENT_TYPE, Archive};
-use szdat::envelope::{Envelope, decode_key, encode_key, generate_private_key};
+use szdt::archive::{ARCHIVE_CONTENT_TYPE, Archive};
+use szdt::envelope::{Envelope, decode_key, encode_key, generate_private_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
-#[command(author = "szdat")]
+#[command(author = "szdt")]
 #[command(about = "Censorship-resistant publishing and archiving")]
 struct Cli {
     #[command(subcommand)]
@@ -15,14 +15,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Unpack a szdat archive")]
+    #[command(about = "Unpack a szdt archive")]
     Unarchive {
         #[arg(help = "Archive file")]
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
 
-    #[command(about = "Create a szdat archive from a folder full of files")]
+    #[command(about = "Create a szdt archive from a folder full of files")]
     Archive {
         #[arg(help = "Directory to archive")]
         #[arg(value_name = "DIR")]
@@ -54,7 +54,7 @@ fn archive(dir: PathBuf, private_key: String) {
         .sign(&private_key_bytes)
         .expect("Unable to sign envelope");
 
-    let output_path = dir.with_extension("szdat");
+    let output_path = dir.with_extension("szdt");
     let file = File::create(&output_path).expect("Should be able to create file");
 
     envelope

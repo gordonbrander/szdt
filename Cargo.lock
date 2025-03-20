@@ -473,7 +473,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "szdat"
+name = "szdt"
 version = "0.0.1"
 dependencies = [
  "clap",

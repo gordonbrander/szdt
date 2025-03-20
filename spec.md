@@ -1,6 +1,6 @@
-# szdat
+# SZDT
 
-**S**igned **Z**ero-trust **Dat**a
+**S**igned **Z**ero-trust **D**a**T**a
 
 A container format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
 
@@ -17,8 +17,6 @@ This is a silly situation to be in. [The internet was designed to be decentraliz
 To maintain a resilient information ecosystem, we need a simple way to publish and archive information that:
 
 - Is decentralized, redundant, and censorship-resistant
-- Can be verified, independent of origin
-- Can be anonymous or pseudonomous
 - Keeps long-tail content alive over long periods of time
 - Is easy to adopt **right now**, with infrastructure that is already widely deployed.
 
@@ -33,41 +31,66 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## Goals
 
-- **Redundant**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). Samizdat archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. Likewise, URLs in Samizdat files point to many redundant locations, including HTTP servers, BitTorrent, and more.
-- **Zero-trust**: Samizdat archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
+- **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
+- **Decentralized**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). SZDT archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. Likewise, URLs in SZDT files point to many redundant locations, including HTTP servers, BitTorrent, and more.
 - **Censorship-resistant**: Distributable via HTTP, Torrents, email, airdrop, sneakernet, or anything else.
-- **Anonymous/pseudonymous**: Samizdat uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required. This allows for anonymous and pseudonymous publishing. If an author wishes to be publicly known, they can use other protocols to link a key to their identity.
-- **Discoverable**: Samizdat archives contain multiple pointers to places where other archives and keys can be found. With just one or two Samizdat files, you can follow the links to construct your own web of trust and collection of archives.
-- **Boring**: Samizdat uses ubiquitous technology. It is designed to be compatible with widely deployed infrastructure, like HTTP. The format is simple, and easy to implement in any language.
+- **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required. This allows for anonymous and pseudonymous publishing. If an author wishes to be publicly known, they can use other protocols to link a key to their identity.
+- **Discoverable**: SZDT archives contain multiple pointers to places where other archives and keys can be found. With just one or two SZDT files, you can follow the links to construct your own web of trust and collection of archives.
+- **Boring**: SZDT uses ubiquitous technology. It is designed to be compatible with widely deployed infrastructure, like HTTP. The format is simple, and easy to implement in any language.
 
 If there are many copies, and many ways to find them, then data can survive the way dandelions do—by spreading seeds.
 
 ### Non-goals
 
-- **P2P**: Samizdat is transport-agnostic. It's just a file format. You should be able to publish, share, and retreive Samizdat archives from anywhere, including HTTP, BitTorrent, email, messaging apps, sneakernet, etc.
-- **Efficiency**: Samizdat is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry too much about efficient streaming or chunking. When efficient downloading is needed, we leverage established protocols like BitTorrent.
-- **Comprehensive preservation**: Samizdat doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
+- **P2P**: SZDT is transport-agnostic. It's just a file format. You should be able to publish, share, and retreive SZDT archives from anywhere, including HTTP, BitTorrent, email, messaging apps, sneakernet, etc.
+- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry too much about efficient streaming or chunking. When efficient downloading is needed, we leverage established protocols like BitTorrent.
+- **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
 
 ## Speculative specification
 
-**TLDR**: Samizdat is a cryptographically-signed CBOR object containing binary file data, plus redundant links and torrents for additional data.
+**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links and torrents for additional data.
 
-A Samizdat CBOR file has the following high-level structure:
+A SZDT CBOR file has the following high-level structure:
 
 ```typescript
 // TODO redo this in CBOR Diagnostic Language.
-// TODO should we use COSE_Sign/COSE_Sign1 or just use our own field names?
+// TODO should we use COSE_Sign/COSE_Sign1 or our own envelope structure?
 
+// Signed envelope of bytes
+type Memo = [
+    Record<string, unknown> & {
+        cty: string, // Content type
+        timestamp: number, // Unix epoch (seconds),
+        pubkey: Uint8Array, // Public key corresponding to sig
+    },
+    Uint8Array; // Body bytes of type signaled by cty
+    Uint8Array; // Ed25519 signature
+];
+```
+
+Memos act as a cryptographically signed envelope for bytes. Memos are encoded as a CBOR array of headers, body bytes, and a cryptographic signature:
+
+- `0` (headers): a CBOR map containing arbitrary key-value metadata, as well as some reserved/required properties:
+    - `cty`: the content-type of the body bytes
+    - `pubkey` (optional): the public key corresponding to the cryptographic signature part of the memo
+- `1` (body): bytes, whose content type is determined by the `cty` header.
+- `2` (signature): Ed2551 signature signing the header and body parts of the memo.
+
+Memos are described as an array, rather than a map, to guarantee that headers come first in the byte order. This allows clients to read headers and determine how to process the body while streaming.
+
+Memo is a generic envelope format that can contain any bytes.
+
+SZDT archives use memos to sign a cbor structure with cty `"application/vnd.szdt.archive+cbor"`. The archive structure contains:
+
+```typescript
+// Decoded from cbor bytes in memo body
+// for cty "application/vnd.szdt.archive+cbor"
 type Archive = {
-    pubkey: string; // public key for archive
-    created_at: number; // Unix timestamp (seconds)
-    parent?: Link; // Optional link to parent revision
     nickname: string; // Suggested name for this archive
-    url: []; // HTTP, magnet, etc where updates for this archive may be found
     files: Array<File | Link>;
     contacts: Contact[];
-    authors: Author[]; // Optional additional author signatures
-    sig: string; // Ed25519 signature for archive
+    urls: []; // URLS where updates for this archive may be found
+    parent?: Link; // Optional link to parent revision
 }
 
 type File = {
@@ -80,8 +103,8 @@ type Link = {
     type: "Link";
     path: string;
     url: string[]; // HTTP, magnet, etc
-    infohash?: string; // BitTorrent v2 infohash (optional)
-    checksum: string; // multibase-multihash base64 BLAKE3 hash
+    filehash: Uint8Array; // multihash SHA-256 of file bytes
+    infohash?: Uint8Array; // BitTorrent v2 infohash (optional)
 }
 
 type Contact = {
@@ -89,21 +112,10 @@ type Contact = {
     pubkey: string;
     url: string[]; // HTTP, magnet, etc where an archive for the contact may be found
 }
-
-type Author = {
-    nickname: string; // Suggested petname
-    pubkey: string;
-    url: string[]; // HTTP, magnet, etc where an archive for the contact may be found
-    sig: // Ed25519 signature data
-}
 ```
 
-
-- `pubkey` is the public key for the archive and is used as the archive's idenfier.
-- `created_at`: a timestamp denoting when this archive was created.
-- `parent?`: an optional `Link` (see below), pointing to the previous revision of this archive.
+- `timestamp`: a timestamp denoting when this archive was created.
 - `nickname`: a human-friendly nickname for the archive.
-- `url`: an array of URLs (typically HTTP or magnet links) where future updates to the archive may be found.
 - `files`: an array of `File` or `Link` structures, represented as CBOR maps.
   - `File`
     - `path`: a suggested file path when unpacking the archive
@@ -112,7 +124,9 @@ type Author = {
     - `path`: a suggested file path when unpacking the archive
     - `url`: an array of URLs (typically HTTP or magnet links) for the resource.
     - `infohash`: an optional BitTorrent v2 infohash for the file
-    - `checksum`: the hash of the raw file bytes, as a multibase-multihash base64 Blake3 hash.
+    - `filehash`: the [multihash](https://github.com/multiformats/multihash) SHA2-256 hash of the raw file bytes.
+- `parent?`: an optional `Link` (see below), pointing to the previous revision of this archive.
+- `url`: an array of URLs (typically HTTP or magnet links) where future updates to the archive may be found.
 
 > TODO: should we use Blake3 or sha256? See section on hashing.
 > TODO: should we base64 encode, Base32, hex, or raw bytes?
@@ -121,22 +135,34 @@ type Author = {
     - `Contact` contains
       - `pubkey`: A public key, acting as the identifier for the contact
       - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
-      - `url`, a list of URLs where updates for this public key may be found. The URLs are typically HTTP or magnet links and are expected to point to a szdat archive for the key.
-- `authors`: an array of zero or more `Author` structures, each of which contributed to authoring the archive. Authors must sign the archive to prove authorship (see "signing authorship", below).
-    - `Author` contains
-      - `pubkey`: A public key, acting as the identifier for the contact
-      - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
-      - `url`: a list of URLs where updates for this public key may be found. The URLs are typically HTTP or magnet links and are expected to point to a szdat archive for the key.
-      - `sig`: the cryptographic signature for this author
-- `sig`: the cryptographic signature
+      - `url`, a list of URLs where updates for this public key may be found. The URLs are typically HTTP or magnet links and are expected to point to a SZDT archive for the key.
 
 ### Signing archives
 
-> TODO: TLDR first each author signs, then the archive signs.
+Archives are signed by:
+
+- Creating a cbor array of `[headers, body]`
+- Serializing that array to CBOR bytes
+- Signing the resulting bytes
+
+> TODO: Consider using COSE_Sign or COSE_Sign1? Probably COSE_Sign1 with counter-signature.
+
+> TODO: Decide on whether plain key with multiformats, did.
+
+> TODO: consider UCAN or similar for key delegation/rotation (see Noosphere's approach)
+
+> 📘 Why Ed25519? Why not…
+> - Ed25519
+>   - Advantages
+>   - Disadvantages
+> - secp256k1
+>   - Advantages
+>   - Disadvantages
+
 
 ### Packging format
 
-A szdat archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
+A SZDT archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
 
 > 📘 Why CBOR? Why not...
 > - CBOR
@@ -162,11 +188,21 @@ A szdat archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simpl
 >      - No streaming parsing
 >      - Higher barrier to entry in browser environment
 
-### Generating file checksums
+### Generating file hashes
 
-File checksums are generated via Blake3.
+Cryptographic hashes are used to verify file integrity when linking to resources.
 
-> 📘 Why Blake3? Why not...
+File hashes are generated with the SHA-256 hashing function. SHA-256 is chosen for its ubiquity and cryptographic security.
+
+The `filehash` is the SHA-256 hash in [multihash](https://github.com/multiformats/multihash) format. In practice, this means it will have a two byte prefix of `0x12 0x20`.
+
+> 📘 Why Sha256? Why not...
+> - Sha256
+>   - Advantages
+>     - Ubiquitous
+>     - Used by Nostr for hashes
+>   - Disadvantages
+>     - Iroh doesn't use it
 > - Blake3
 >   - Advantages
 >     - Small and fast hashes
@@ -174,12 +210,6 @@ File checksums are generated via Blake3.
 >     - Streaming verification
 >   - Disadvantages
 >     - Newer, not ubiquitous
-> - Sha256
->   - Advantages
->     - Ubiquitous
->     - Used by Nostr for hashes
->   - Disadvantages
->     - Iroh doesn't use it
 > - MD5
 >   - Advantages
 >     - Used by Anna's Archive, LibGen
@@ -200,7 +230,7 @@ Notably, authors are free to embed structures like CRDTs in the file portions of
 
 ## Example use-cases
 
-Here are a few things you can do, or that should be easy to do with Samizdat.
+Here are a few things you can do, or that should be easy to do with SZDT.
 
 - Publishing and downloading via HTTP.
 - Downloading unpacked files (or zipped archive) from the browser.
@@ -226,8 +256,8 @@ Here are a few things you can do, or that should be easy to do with Samizdat.
     - Some archives are too big to fit into one file. Links allow authors to externalize resources that might be difficult or expensive to embed.
     - Having both links and files allows authors to "turn the dial" on where the bytes live. For example, you might embed text files, but link out to LOTR_4K_ExtendedEdition.mp4.
 - Why not Internet Archive/Library of Congress/LibGen/Anna's Archive/Sci-Hub?
-    - Samizdat could be used with or alongside any of these. Our goal is not to replace archival projects, but to offer a (possibly complimentary) "dandelion seed" file format.
-    - Like our namesake, the focus of Samizdat is on censorship-resistant self-publishing. Our use-cases include archiving, but also smaller-scale tasks such as personal archives, notes, and other content that may never make it into these larger archives.
+    - SZDT could be used with or alongside any of these. Our goal is not to replace archival projects, but to offer a (possibly complimentary) "dandelion seed" file format.
+    - Like our namesake, the focus of SZDT is on censorship-resistant self-publishing. Our use-cases include archiving, but also smaller-scale tasks such as personal archives, notes, and other content that may never make it into these larger archives.
 - Why CBOR? Why not ZIP?
     - CBOR is fast and easy to unpack in a browser context.
     - CBOR is an IETF standard with broad support across languages, and an increasingly capable toolchain.
@@ -238,13 +268,13 @@ Here are a few things you can do, or that should be easy to do with Samizdat.
 
 - Seeding content should be as easy as uploading a file to an ordinary HTTP server.
 - Runs in the browser. If it doesn't, you're DOA. Ideally it "just works", but given the pervasiveness of cross-origin restrictions, we'll settle for a JavaScript polyfill.
-- Who and what, not where and how. Samizdat verifies authenticity (who) with public keys, and file integrity (what) with hashes. We don't care where the file lives (which server) or how you got it (which transport). This enhances censorship resistance, since the data can be shared through any mechanism.
+- Who and what, not where and how. SZDT verifies authenticity (who) with public keys, and file integrity (what) with hashes. We don't care where the file lives (which server) or how you got it (which transport). This enhances censorship resistance, since the data can be shared through any mechanism.
 - Think in files, because the world thinks in files. We don't worry about content chunking, like BitTorrent, or content-addressed DAGs, like IPFS. Files are good enough. They aren't perfect, but they are simple and ubiquitous.
 - Be fault-tolerant. Embrace the fact that we might not be able to retrieve every part of an archive. Some files might disappear. It's better to get some than none.
 
 ## Acknowledgements
 
-szdat begs, borrows and steals inspiration from a number of smart people and projects:
+SZDT begs, borrows and steals inspiration from a number of smart people and projects:
 
 - [Noosphere](https://github.com/subconsciousnetwork/noosphere): for the idea of combining archives with p2p discovery via address books and petnames.
 - [Nostr](https://nostr.com/protocol): for the emphasis on extreme simplicity, self-sovereign signing, and the use of boring HTTP relays for censorship-resistant publishing.

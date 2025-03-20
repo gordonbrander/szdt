@@ -1,16 +1,22 @@
 [package]
-name = "szdat"
+name = "szdt"
 version = "0.0.1"
 edition = "2024"
 
 [[bin]]
-name = "szdat"
-path = "src/bin/szdat.rs"
+name = "szdt"
+path = "src/bin/szdt.rs"
 
 [dependencies]
 clap = { version = "4.5.31", features = ["derive"] }
 data-encoding = "2.8.0"
-ed25519-dalek = { version = "2.1.1", features = ["alloc", "digest", "rand_core", "serde", "signature"] }
+ed25519-dalek = { version = "2.1.1", features = [
+    "alloc",
+    "digest",
+    "rand_core",
+    "serde",
+    "signature",
+] }
 multihash = "0.19.3"
 rand = "0.8.5"
 serde = { version = "1.0.219", features = ["derive"] }
