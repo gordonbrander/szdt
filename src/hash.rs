@@ -1,4 +1,25 @@
 use crate::error::{Error, Result};
+use sha2::{Digest, Sha256};
+
+pub type Hash = [u8; 32];
+pub type Multihash = [u8; 34];
+
+/// Converts a Slice<u8> to a fixed-size array of 32 bytes.
+pub fn to_hash(bytes: &[u8]) -> Result<Hash> {
+    if bytes.len() != 32 {
+        return Err(Error::ValueError(format!(
+            "Expected 32 bytes, got {}",
+            bytes.len()
+        )));
+    }
+
+    // This is safe because we've verified the length is exactly 32
+    let bytes_32 = bytes
+        .try_into()
+        .map_err(|_| Error::ValueError("Failed to convert vector to array".to_string()))?;
+
+    Ok(bytes_32)
+}
 
 /// Encodes a SHA-256 hash as a multihash by adding the appropriate identifier bytes.
 ///
@@ -13,7 +34,7 @@ use crate::error::{Error, Result};
 /// # Returns
 /// * `Vec<u8>` - The multihash-encoded bytes
 /// ```
-pub fn sha256_to_multihash(hash_bytes: &[u8; 32]) -> Vec<u8> {
+pub fn sha256_to_multihash(sha256digest: &Hash) -> Multihash {
     // Create a new vector with capacity for the multihash
     let mut multihash = Vec::with_capacity(34); // 2 bytes prefix + 32 bytes hash
 
@@ -24,9 +45,11 @@ pub fn sha256_to_multihash(hash_bytes: &[u8; 32]) -> Vec<u8> {
     multihash.push(32);
 
     // Add the actual hash bytes
-    multihash.extend_from_slice(hash_bytes);
+    multihash.extend_from_slice(sha256digest);
 
     multihash
+        .try_into()
+        .expect("Vec should be convertible to multihash array")
 }
 
 /// Decodes a multihash into a SHA-256 hash.
@@ -61,6 +84,18 @@ pub fn multihash_to_sha256(multihash: &[u8; 34]) -> Result<Vec<u8>> {
     let hash_bytes = &multihash[2..];
 
     Ok(hash_bytes.to_vec())
+}
+
+pub fn sha256(bytes: &[u8]) -> Hash {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let hash = hasher.finalize();
+    to_hash(hash.as_slice()).expect("Sha256 should return valid hash bytes")
+}
+
+/// Generate the SHA-256 multihash from bytes
+pub fn sha256_multihash(bytes: &[u8]) -> Multihash {
+    sha256_to_multihash(&sha256(bytes))
 }
 
 #[cfg(test)]
