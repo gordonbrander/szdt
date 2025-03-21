@@ -36,15 +36,16 @@ pub struct Link {
     pub path: PathBuf,
     /// One or more URLs where the file may be found
     pub urls: Vec<String>,
-    pub checksum: Vec<u8>,
+    /// Hash of the file (SHA256 in multihash format)
+    pub filehash: Vec<u8>,
 }
 
 impl Link {
-    pub fn new(path: PathBuf, url: Vec<String>, checksum: Vec<u8>) -> Link {
+    pub fn new(path: PathBuf, url: Vec<String>, filehash: Vec<u8>) -> Link {
         Link {
             path,
             urls: url,
-            checksum,
+            filehash,
         }
     }
 }
