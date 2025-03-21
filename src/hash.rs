@@ -27,13 +27,6 @@ pub fn to_hash(bytes: &[u8]) -> Result<Hash> {
 /// - A hash function identifier (0x12 for SHA-256)
 /// - The length of the hash (32 bytes for SHA-256)
 /// - The hash digest itself
-///
-/// # Arguments
-/// * `hash_bytes` - A byte slice containing the raw SHA-256 hash (should be 32 bytes)
-///
-/// # Returns
-/// * `Vec<u8>` - The multihash-encoded bytes
-/// ```
 pub fn sha256_to_multihash(sha256digest: &Hash) -> Multihash {
     // Create a new vector with capacity for the multihash
     let mut multihash = Vec::with_capacity(34); // 2 bytes prefix + 32 bytes hash
@@ -58,14 +51,7 @@ pub fn sha256_to_multihash(sha256digest: &Hash) -> Multihash {
 /// - A hash function identifier (0x12 for SHA-256)
 /// - The length of the hash (32 bytes for SHA-256)
 /// - The hash digest itself
-///
-/// # Arguments
-/// * `multihash` - A byte slice containing the multihash-encoded bytes (should be 34 bytes)
-///
-/// # Returns
-/// * `Result<Vec<u8>>` - The decoded SHA-256 hash bytes or an error if the multihash is invalid
-/// ```
-pub fn multihash_to_sha256(multihash: &[u8; 34]) -> Result<Vec<u8>> {
+pub fn multihash_to_sha256(multihash: &[u8; 34]) -> Result<Hash> {
     // Ensure the multihash identifier is 0x12 (SHA-256)
     if multihash[0] != 0x12 {
         return Err(Error::ValueError(
@@ -81,9 +67,9 @@ pub fn multihash_to_sha256(multihash: &[u8; 34]) -> Result<Vec<u8>> {
     }
 
     // Extract the hash bytes
-    let hash_bytes = &multihash[2..];
+    let hash = to_hash(&multihash[2..])?;
 
-    Ok(hash_bytes.to_vec())
+    Ok(hash)
 }
 
 pub fn sha256(bytes: &[u8]) -> Hash {
@@ -130,8 +116,6 @@ mod tests {
         // Decode the multihash
         let hash = multihash_to_sha256(&multihash).unwrap();
 
-        // Verify the result
-        assert_eq!(hash.len(), 32);
         for byte in hash.iter() {
             assert_eq!(*byte, 0xBB);
         }
@@ -188,5 +172,26 @@ mod tests {
         } else {
             panic!("Expected ValueError about length");
         }
+    }
+
+    #[test]
+    fn test_sha256_multihash() {
+        // Test with a known string
+        let input = b"hello world";
+        let multihash = sha256_multihash(input);
+
+        // Verify it's a proper multihash
+        assert_eq!(multihash.len(), 34);
+        assert_eq!(multihash[0], 0x12); // SHA-256 identifier
+        assert_eq!(multihash[1], 32); // length
+
+        // Verify the hash matches the expected SHA-256 hash of "hello world"
+        // SHA-256 of "hello world" is b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+        let expected_hash = [
+            0xB9, 0x4D, 0x27, 0xB9, 0x93, 0x4D, 0x3E, 0x08, 0xA5, 0x2E, 0x52, 0xD7, 0xDA, 0x7D,
+            0xAB, 0xFA, 0xC4, 0x84, 0xEF, 0xE3, 0x7A, 0x53, 0x80, 0xEE, 0x90, 0x88, 0xF7, 0xAC,
+            0xE2, 0xEF, 0xCD, 0xE9,
+        ];
+        assert_eq!(&multihash[2..], expected_hash.as_slice());
     }
 }
