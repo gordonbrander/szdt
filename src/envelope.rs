@@ -1,3 +1,4 @@
+use crate::did;
 use crate::error::{Error, Result};
 use data_encoding::BASE32;
 pub use ed25519_dalek::{SecretKey, Signature, SigningKey, VerifyingKey};
@@ -21,7 +22,7 @@ pub struct Headers {
     pub created_at: u64,
 
     /// Public key of sender
-    pub pubkey: Option<Vec<u8>>,
+    pub did: Option<String>,
 
     /// Additional headers
     #[serde(flatten)]
@@ -33,7 +34,7 @@ impl Headers {
         Headers {
             content_type,
             created_at: now_epoch_secs(),
-            pubkey: None,
+            did: None,
             other: HashMap::new(),
         }
     }
@@ -97,8 +98,10 @@ impl Envelope {
         // Generate a keypair
         let keypair = SigningKey::from_bytes(private_key);
 
-        // Assign pubkey to headers
-        self.headers.pubkey = Some(keypair.verifying_key().to_bytes().to_vec());
+        let did_key = did::encode_ed25519_did_key(&keypair.verifying_key().to_bytes());
+
+        // Assign did for pubkey to headers
+        self.headers.did = Some(did_key);
 
         // Get bytes for signing
         let signing_bytes = self.to_signing_bytes()?;
@@ -107,9 +110,9 @@ impl Envelope {
         let signature = keypair.sign(&signing_bytes).to_vec();
 
         Ok(Envelope {
-            sig: Some(signature),
             body: self.body,
             headers: self.headers,
+            sig: Some(signature),
         })
     }
 
@@ -136,17 +139,19 @@ impl Envelope {
         }
     }
 
+    /// Verify the envelope using the public key from the headers
     pub fn verify(&self) -> Result<()> {
         // Get public key from headers
-        let Some(pubkey) = &self.headers.pubkey else {
+        let Some(pubkey) = &self.headers.did else {
             return Err(Error::ValidationError("Missing public key".to_string()));
         };
 
-        let Ok(pubkey_slice) = pubkey.as_slice().try_into() else {
+        // Decode the public key from the DID
+        let Some(pubkey) = did::decode_ed25519_did_key(pubkey) else {
             return Err(Error::DecodingError("Invalid public key bytes".to_string()));
         };
 
-        let verifying_key = VerifyingKey::from_bytes(pubkey_slice)?;
+        let verifying_key = VerifyingKey::from_bytes(&pubkey)?;
         self.verify_with_key(&verifying_key)
     }
 
@@ -166,7 +171,7 @@ impl Serialize for Envelope {
     where
         S: serde::Serializer,
     {
-        (&self.sig, &self.headers, &self.body).serialize(serializer)
+        (&self.headers, &self.body, &self.sig).serialize(serializer)
     }
 }
 
@@ -176,7 +181,7 @@ impl<'de> Deserialize<'de> for Envelope {
         D: serde::Deserializer<'de>,
     {
         // Deserialize as a tuple (signature, headers, body)
-        let (sig, headers, body) = Deserialize::deserialize(deserializer)?;
+        let (headers, body, sig) = Deserialize::deserialize(deserializer)?;
 
         Ok(Envelope { sig, headers, body })
     }
@@ -245,7 +250,7 @@ mod tests {
         let headers = Headers {
             content_type: "application/cbor".to_string(),
             created_at: 1234567890,
-            pubkey: None,
+            did: None,
             other: HashMap::new(),
         };
         let body = vec![1, 2, 3, 4];
