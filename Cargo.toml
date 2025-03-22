@@ -8,6 +8,7 @@ name = "szdt"
 path = "src/bin/szdt.rs"
 
 [dependencies]
+bs58 = "0.5.1"
 clap = { version = "4.5.31", features = ["derive"] }
 data-encoding = "2.8.0"
 ed25519-dalek = { version = "2.1.1", features = [

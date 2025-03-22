@@ -9,15 +9,14 @@
 - [ ] Archive
   - [x] Serialize/deserialize CBOR
   - [x] Inlined Files
-  - [ ] Links
+  - [x] Links
   - [ ] Validate checksums
   - [ ] Metadata
-  - [ ] update URLs
+  - [ ] Update URLs
 - [ ] CLI
   - [x] Generate key
   - [x] Rountrip envelope + archive
   - [x] Rountrip signed envelope + archive
-  - [ ] Choose archive file name
   - [ ] Create from folder + manifest
 
 ## Development
