@@ -5,7 +5,7 @@
   - [x] Serialize/deserialize body
   - [x] Signing / verification
       - [x] Ed25519
-  - [ ] `did:key`
+  - [x] `did:key`
 - [ ] Archive
   - [x] Serialize/deserialize CBOR
   - [x] Inlined Files
