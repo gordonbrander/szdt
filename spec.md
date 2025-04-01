@@ -48,49 +48,48 @@ If there are many copies, and many ways to find them, then data can survive the 
 
 ## Speculative specification
 
-**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links and torrents for additional data.
+**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links to additional data.
 
-A SZDT CBOR file has the following high-level structure:
+The format is made up of two part
+
+- an outer signed CBOR COSE_Sign1 envelope, proving the authenticity of the data
+- an inner CBOR object describing the archive data
+
+The outer envelope has the following high-level structure:
 
 ```typescript
 // TODO redo this in CBOR Diagnostic Language.
-// TODO should we use COSE_Sign/COSE_Sign1 or our own envelope structure?
-
-// Signed envelope of bytes
-type Memo = [
-    Record<string, unknown> & {
-        cty: string, // Content type
-        timestamp: number, // Unix epoch (seconds),
-        pubkey: Uint8Array, // Public key corresponding to sig
-    },
-    Uint8Array; // Body bytes of type signaled by cty
-    Uint8Array; // Ed25519 signature
+type COSE_Sign1 = [
+    Uint8Array, // Protected headers
+    Record<string | number, unknown>, // Unprotected headers
+    Uint8Array, // Body bytes
+    Uint8Array, // Ed25519 signature bytes
 ];
 ```
 
-Memos act as a cryptographically signed envelope for bytes. Memos are encoded as a CBOR array of headers, body bytes, and a cryptographic signature:
+SZDT archives are expected to include specific header data in the protected headers.
 
-- `0` (headers): a CBOR map containing arbitrary key-value metadata, as well as some reserved/required properties:
-    - `cty`: the content-type of the body bytes
-    - `pubkey` (optional): the public key corresponding to the cryptographic signature part of the memo
-- `1` (body): bytes, whose content type is determined by the `cty` header.
-- `2` (signature): Ed2551 signature signing the header and body parts of the memo.
+- `kid`: a DID which resolves to a public key that can be used to verify the signature.
+- `cty`: a content type of `application/vnd.szdt.archive+cbor`
 
-Memos are described as an array, rather than a map, to guarantee that headers come first in the byte order. This allows clients to read headers and determine how to process the body while streaming.
+```typescript
+type ProtectedHeaders = Record<string | number, unknown> & {
+  kid: string, // did:key corresponding to signature
+  cty: "application/vnd.szdt.archive+cbor", // Content type
+},
+```
 
-Memo is a generic envelope format that can contain any bytes.
-
-SZDT archives use memos to sign a cbor structure with cty `"application/vnd.szdt.archive+cbor"`. The archive structure contains:
+The body bytes contain a CBOR encoded `Archive` object, with the following high-level structure:
 
 ```typescript
 // Decoded from cbor bytes in memo body
 // for cty "application/vnd.szdt.archive+cbor"
 type Archive = {
+    timestamp: number; // Timestamp denoting when this archive was created.
     nickname: string; // Suggested name for this archive
     files: Array<File | Link>;
     contacts: Contact[];
     urls: []; // URLS where updates for this archive may be found
-    parent?: Link; // Optional link to parent revision
 }
 
 type File = {
@@ -102,15 +101,14 @@ type File = {
 type Link = {
     type: "Link";
     path: string;
-    url: string[]; // HTTP, magnet, etc
+    urls: string[]; // HTTP, magnet, etc
     filehash: Uint8Array; // multihash SHA-256 of file bytes
     infohash?: Uint8Array; // BitTorrent v2 infohash (optional)
 }
 
 type Contact = {
-    nickname: string; // Suggested petname
-    pubkey: string;
-    url: string[]; // HTTP, magnet, etc where an archive for the contact may be found
+    nickname: string; // Suggested petname for key
+    pubkey: string; //
 }
 ```
 
@@ -122,34 +120,20 @@ type Contact = {
     - `content`: the raw bytes of the original file contents
   - `Link`
     - `path`: a suggested file path when unpacking the archive
-    - `url`: an array of URLs (typically HTTP or magnet links) for the resource.
-    - `infohash`: an optional BitTorrent v2 infohash for the file
+    - `urls`: an array of URLs (typically HTTP or magnet links) for the resource.
     - `filehash`: the [multihash](https://github.com/multiformats/multihash) SHA2-256 hash of the raw file bytes.
-- `parent?`: an optional `Link` (see below), pointing to the previous revision of this archive.
-- `url`: an array of URLs (typically HTTP or magnet links) where future updates to the archive may be found.
-
-> TODO: should we use Blake3 or sha256? See section on hashing.
-> TODO: should we base64 encode, Base32, hex, or raw bytes?
-
-- `contacts`: an array of zero or more `Contact` structures, represented as CBOR maps. Can be used by consumers to discover related content and keys, and build webs of trust, without recourse to a centralized authority.
-    - `Contact` contains
-      - `pubkey`: A public key, acting as the identifier for the contact
-      - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
-      - `url`, a list of URLs where updates for this public key may be found. The URLs are typically HTTP or magnet links and are expected to point to a SZDT archive for the key.
+    - `infohash` (optional): an optional BitTorrent v2 infohash for the file
+- `urls`: an array of URLs (typically HTTP or magnet links) where future updates to the archive may be found.
+- `contacts`: an array of zero or more `Contact` structures, represented as CBOR maps. Can be used by clients to build up their own address book of contacts.
+  - `Contact` contains
+    - `pubkey`: An Ed25519 public key, acting as the identifier for the contact (multicodec encoded)
+    - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
 
 ### Signing archives
 
-Archives are signed by:
+Signing the memo is accomplished by signing the body bytes with the [COSE_Sign1 signing process](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) using the [Ed25519 signature scheme](https://www.rfc-editor.org/rfc/rfc9052.html).
 
-- Creating a cbor array of `[headers, body]`
-- Serializing that array to CBOR bytes
-- Signing the resulting bytes
-
-> TODO: Consider using COSE_Sign or COSE_Sign1? Probably COSE_Sign1 with counter-signature.
-
-> TODO: Decide on whether plain key with multiformats, did.
-
-> TODO: consider UCAN or similar for key delegation/rotation (see Noosphere's approach)
+> TODO: consider UCAN, ZCAP, or similar for delegation/key rotation (see Noosphere's approach)
 
 > 📘 Why Ed25519? Why not…
 > - Ed25519
@@ -158,35 +142,6 @@ Archives are signed by:
 > - secp256k1
 >   - Advantages
 >   - Disadvantages
-
-
-### Packging format
-
-A SZDT archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
-
-> 📘 Why CBOR? Why not...
-> - CBOR
->   - Advantages
->     - IETF standard
->     - Streaming parsing
->     - Widely available libraries
->   - Disadvantages
->     - Not human readable
->     - Higher barrier to entry vs JSON
-> - JSON
->   - Advantages
->     - Ubiquitous
->     - Human-readable and authorable
->   - Disadvantages
->     - Can't embed file bytes without encoding
-> - Zip
->    - Advantages
->      - Ubiquitous
->      - Users can un-archive using built-in OS tools
->      - Random access
->    - Disadvantages
->      - No streaming parsing
->      - Higher barrier to entry in browser environment
 
 ### Generating file hashes
 
@@ -227,6 +182,34 @@ Archives may also provide a `parent` field containing a link to previous revisio
 Notably, authors are free to embed structures like CRDTs in the file portions of the format, allowing for even finer-grained merge strategies, although this is outside the scope of this specification, and up to the author.
 
 # Appendix
+
+### Packging format
+
+A SZDT archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
+
+> 📘 Why CBOR? Why not...
+> - CBOR
+>   - Advantages
+>     - IETF standard
+>     - Streaming parsing
+>     - Widely available libraries
+>   - Disadvantages
+>     - Not human readable
+>     - Higher barrier to entry vs JSON
+> - JSON
+>   - Advantages
+>     - Ubiquitous
+>     - Human-readable and authorable
+>   - Disadvantages
+>     - Can't embed file bytes without encoding
+> - Zip
+>    - Advantages
+>      - Ubiquitous
+>      - Users can un-archive using built-in OS tools
+>      - Random access
+>    - Disadvantages
+>      - No streaming parsing
+>      - Higher barrier to entry in browser environment
 
 ## Example use-cases
 
