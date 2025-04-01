@@ -96,9 +96,9 @@ impl Envelope {
     /// Returns a new Envelope with the signature and public key set.
     pub fn sign(mut self, private_key: &SecretKey) -> Result<Envelope> {
         // Generate a keypair
-        let keypair = SigningKey::from_bytes(private_key);
+        let signing_key = SigningKey::from_bytes(private_key);
 
-        let did_key = did::encode_ed25519_did_key(&keypair.verifying_key().to_bytes());
+        let did_key = did::encode_ed25519_did_key(&signing_key.verifying_key().to_bytes());
 
         // Assign did for pubkey to headers
         self.headers.did = Some(did_key);
@@ -107,7 +107,7 @@ impl Envelope {
         let signing_bytes = self.to_signing_bytes()?;
 
         // Sign the bytes
-        let signature = keypair.sign(&signing_bytes).to_vec();
+        let signature = signing_key.sign(&signing_bytes).to_vec();
 
         Ok(Envelope {
             body: self.body,
@@ -120,11 +120,15 @@ impl Envelope {
     /// Returns a new Envelope with the signature and public key set.
     pub fn verify_with_key(&self, verifying_key: &VerifyingKey) -> Result<()> {
         let Some(sig) = &self.sig else {
-            return Err(Error::SignatureError("No signature".to_string()));
+            return Err(Error::SignatureVerificationError(
+                "No signature".to_string(),
+            ));
         };
 
         let Ok(sig_bytes) = sig.as_slice().try_into() else {
-            return Err(Error::SignatureError("Invalid signature bytes".to_string()));
+            return Err(Error::SignatureVerificationError(
+                "Invalid signature bytes".to_string(),
+            ));
         };
 
         let signature = Signature::from_bytes(sig_bytes);
@@ -135,7 +139,9 @@ impl Envelope {
         // Verify the signature
         match verifying_key.verify(&signing_bytes, &signature) {
             Ok(()) => Ok(()),
-            Err(_) => Err(Error::SignatureError("Signature didn't verify".to_string())),
+            Err(_) => Err(Error::SignatureVerificationError(
+                "Signature didn't verify".to_string(),
+            )),
         }
     }
 

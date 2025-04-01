@@ -5,7 +5,7 @@ pub enum Error {
     Ed25519Error(String, ed25519_dalek::ed25519::Error),
     DecodingError(String),
     ValidationError(String),
-    SignatureError(String),
+    SignatureVerificationError(String),
     ValueError(String),
 }
 
@@ -17,7 +17,7 @@ impl std::error::Error for Error {
             Error::Ed25519Error(_, err) => Some(err),
             Error::DecodingError(_) => None,
             Error::ValidationError(_) => None,
-            Error::SignatureError(_) => None,
+            Error::SignatureVerificationError(_) => None,
             Error::ValueError(_) => None,
         }
     }
@@ -31,7 +31,7 @@ impl std::fmt::Display for Error {
             Error::Ed25519Error(msg, _) => write!(f, "Ed25519 error: {}", msg),
             Error::DecodingError(msg) => write!(f, "Decoding error: {}", msg),
             Error::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            Error::SignatureError(msg) => write!(f, "Signature error: {}", msg),
+            Error::SignatureVerificationError(msg) => write!(f, "Signature error: {}", msg),
             Error::ValueError(msg) => write!(f, "Value error: {}", msg),
         }
     }
