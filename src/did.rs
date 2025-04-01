@@ -1,6 +1,7 @@
 use bs58;
 
 /// The multicodec prefix for ed25519 public key is 0xed.
+/// https://github.com/multiformats/multicodec/blob/master/table.csv
 const ED25519_PUB_PREFIX: u8 = 0xed;
 
 /// The prefix for did:key using Base58BTC encoding.
@@ -10,8 +11,6 @@ const DID_KEY_BASE58BTC_PREFIX: &str = "did:key:z";
 /// Convert ed25519 public key bytes to a did:key.
 pub fn encode_ed25519_did_key(public_key: &[u8; 32]) -> String {
     // Convert public key to multibase encoded string
-    // For ed25519 public key, the multicodec prefix is 0xed
-    // https://github.com/multiformats/multicodec/blob/master/table.csv
     let mut multicodec_bytes = vec![ED25519_PUB_PREFIX];
     multicodec_bytes.extend_from_slice(public_key);
 
