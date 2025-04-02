@@ -175,7 +175,7 @@ mod tests {
 
         let envelope2 = CoseEnvelope::from_cose_sign1_ed25519(&signed_data).unwrap();
 
-        let body2: Vec<u8> = envelope2.deserialize_body().unwrap();
+        let body2: Vec<u8> = envelope2.body;
 
         assert_eq!(body, body2);
     }
