@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 pub use ed25519_dalek::SecretKey;
 use ed25519_dalek::{PUBLIC_KEY_LENGTH, Signature, SigningKey, VerifyingKey};
 use ed25519_dalek::{Signer, Verifier};
+use rand::rngs::OsRng;
 
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 pub type SignatureBytes = [u8; 64];
@@ -19,6 +20,12 @@ pub fn get_public_key(secret_key: &SecretKey) -> PublicKey {
     SigningKey::from_bytes(secret_key)
         .verifying_key()
         .to_bytes()
+}
+
+/// Generate a new private key
+pub fn generate_private_key() -> SecretKey {
+    let mut csprng = OsRng;
+    SigningKey::generate(&mut csprng).to_bytes()
 }
 
 /// Convert a Vec<u8> to SignatureBytes.
