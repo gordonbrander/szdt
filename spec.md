@@ -50,12 +50,12 @@ If there are many copies, and many ways to find them, then data can survive the 
 
 **TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links to additional data.
 
-The format is made up of two part
+The format is made up of two parts:
 
-- an outer signed CBOR COSE_Sign1 envelope, proving the authenticity of the data
+- an outer signed [CBOR COSE_Sign1](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) envelope, proving the authenticity of the data
 - an inner CBOR object describing the archive data
 
-The outer envelope has the following high-level structure:
+The outer COSE_Sign1 envelope has the following high-level structure:
 
 ```typescript
 // TODO redo this in CBOR Diagnostic Language.
@@ -67,7 +67,7 @@ type COSE_Sign1 = [
 ];
 ```
 
-SZDT archives are expected to include specific header data in the protected headers.
+SZDT archives should include specific header data in the protected headers.
 
 - `kid`: a DID which resolves to a public key that can be used to verify the signature. Only [`did:key`](https://github.com/digitalbazaar/did-method-key) is expected to be supported at this time.
 - `cty`: a content type of `application/vnd.szdt.archive+cbor`
@@ -131,7 +131,7 @@ type Contact = {
     - `pubkey`: An Ed25519 public key, acting as the identifier for the contact (multicodec encoded)
     - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
 
-Meta fields are provided in many fields of the archive to support workflows where catalog metadata, such as ISBNs, are stored alongside the actual file bytes and URLs. We expect some archives may consist entirely of catalog metadata and URLs. Distributing metadata can, in many cases, be as valuable as distributing the archival data itself.
+`meta` fields are provided in many structures of the archive to support workflows where catalog metadata, such as ISBNs, are stored alongside the file bytes and URLs. We expect some archives may consist entirely of catalog metadata and URLs. Distributing metadata can, in many cases, be as valuable as distributing the archival data itself.
 
 ### Signing archives
 

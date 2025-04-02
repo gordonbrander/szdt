@@ -1,8 +1,11 @@
 use clap::{Parser, Subcommand};
 use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use szdt::archive::{ARCHIVE_CONTENT_TYPE, Archive};
-use szdt::envelope::{Envelope, decode_key, encode_key, generate_private_key};
+use szdt::cose::CoseEnvelope;
+use szdt::did::{decode_base58btc, encode_base58btc};
+use szdt::ed25519::{generate_private_key, vec_to_private_key};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -48,28 +51,28 @@ fn archive(dir: PathBuf, private_key: String) {
         .write_cbor_to(&mut body)
         .expect("Should be able to write body to vec");
 
-    let private_key_bytes = decode_key(&private_key).expect("Invalid private key");
+    let private_key_bytes =
+        decode_base58btc(&private_key).expect("Invalid private key (could not decode base58btc)");
+    let private_key = vec_to_private_key(&private_key_bytes)
+        .expect("Invalid private key (wrong number of bytes)");
 
-    let envelope = Envelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body)
-        .sign(&private_key_bytes)
+    let signed_cbor_bytes = CoseEnvelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body)
+        .sign_ed25519(&private_key)
         .expect("Unable to sign envelope");
 
     let output_path = dir.with_extension("szdt");
-    let file = File::create(&output_path).expect("Should be able to create file");
-
-    envelope
-        .write_cbor_to(file)
+    let mut file = File::create(&output_path).expect("Should be able to create file");
+    file.write_all(&signed_cbor_bytes)
         .expect("Should be able to write to file");
 
     println!("Archived: {:?}", output_path);
 }
 
 fn unarchive(file_path: PathBuf) {
-    let file = File::open(&file_path).expect("Should be able to open file");
-    let envelope = Envelope::read_cbor_from(file).expect("Should be able to read envelope");
+    let bytes = std::fs::read(&file_path).expect("Should be able to read file");
 
-    // Check signature
-    envelope.verify().expect("Signature verification failed.");
+    let envelope =
+        CoseEnvelope::from_cose_sign1_ed25519(&bytes).expect("Must be valid COSE_Sign1 structure");
 
     let archive: Archive = envelope
         .deserialize_body()
@@ -85,7 +88,7 @@ fn unarchive(file_path: PathBuf) {
 
 fn genkey() {
     let key = generate_private_key();
-    let encoded_key = encode_key(key);
+    let encoded_key = encode_base58btc(key);
     println!("{}", encoded_key);
 }
 

@@ -55,6 +55,12 @@ impl From<data_encoding::DecodeError> for Error {
     }
 }
 
+impl From<bs58::decode::Error> for Error {
+    fn from(err: bs58::decode::Error) -> Self {
+        Error::DecodingError(err.to_string())
+    }
+}
+
 impl From<ed25519_dalek::ed25519::Error> for Error {
     fn from(err: ed25519_dalek::ed25519::Error) -> Self {
         Error::Ed25519Error(err.to_string(), err)

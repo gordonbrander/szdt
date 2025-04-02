@@ -133,7 +133,8 @@ pub fn write_file_deep(path: &Path, content: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::{Envelope, Headers, SigningKey, generate_private_key};
+    use crate::cose::CoseEnvelope;
+    use crate::ed25519::generate_private_key;
 
     #[test]
     fn test_envelope_archive_serialization_deserialization() {
@@ -153,7 +154,7 @@ mod tests {
         original_archive.write_cbor_to(&mut buffer).unwrap();
 
         // Create an envelope with the serialized archive
-        let envelope = Envelope::of_content_type(ARCHIVE_CONTENT_TYPE, buffer);
+        let envelope = CoseEnvelope::of_content_type(ARCHIVE_CONTENT_TYPE.into(), buffer);
 
         // Deserialize the archive from the envelope
         let deserialized_archive: Archive = envelope.deserialize_body().unwrap();
@@ -163,51 +164,19 @@ mod tests {
     }
 
     #[test]
-    fn test_envelope_verification_with_key() {
-        let headers = Headers::new("application/cbor".to_string());
+    fn test_envelope_verification() {
         let body = vec![1, 2, 3, 4];
 
-        let envelope = Envelope::new(headers, body);
-        let private_key = generate_private_key();
-        let signing_key = SigningKey::from_bytes(&private_key);
-        let verifying_key = signing_key.verifying_key();
-
-        // Sign the envelope
-        let signed_envelope = envelope.sign(&private_key).unwrap();
-
-        // Verify the signature with the correct public key
-        let verification_result = signed_envelope.verify_with_key(&verifying_key);
-        assert!(verification_result.is_ok());
-
-        // Try to verify with a different public key
-        let different_private_key = generate_private_key();
-        let different_signing_key = SigningKey::from_bytes(&different_private_key);
-        let different_verifying_key = different_signing_key.verifying_key();
-        let wrong_verification = signed_envelope.verify_with_key(&different_verifying_key);
-        assert!(wrong_verification.is_err());
-
-        // Test envelope with no signature
-        let unsigned_envelope = Envelope::new(
-            Headers::new("application/cbor".to_string()),
-            vec![5, 6, 7, 8],
-        );
-        let result = unsigned_envelope.verify_with_key(&verifying_key);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_envelope_verification_with_header_pubkey() {
-        let headers = Headers::new("application/cbor".to_string());
-        let body = vec![1, 2, 3, 4];
-
-        let envelope = Envelope::new(headers, body);
+        let envelope = CoseEnvelope::of_content_type(ARCHIVE_CONTENT_TYPE.into(), body.clone());
         let private_key = generate_private_key();
 
         // Sign the envelope
-        let signed_envelope = envelope.sign(&private_key).unwrap();
+        let signed_data = envelope.sign_ed25519(&private_key).unwrap();
 
-        // Verify the signature with the correct public key
-        let verification_result = signed_envelope.verify();
-        assert!(verification_result.is_ok());
+        let envelope2 = CoseEnvelope::from_cose_sign1_ed25519(&signed_data).unwrap();
+
+        let body2: Vec<u8> = envelope2.deserialize_body().unwrap();
+
+        assert_eq!(body, body2);
     }
 }

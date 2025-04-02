@@ -1,6 +1,7 @@
-use crate::did::encode_ed25519_did_key;
-use crate::ed25519::{PublicKey, SecretKey, get_public_key, sign, vec_to_signature, verify};
+use crate::did::{decode_ed25519_did_key, encode_ed25519_did_key};
+use crate::ed25519::{SecretKey, get_public_key, sign, vec_to_signature, verify};
 use crate::error::{Error, Result};
+use serde::de::DeserializeOwned;
 use serde_cbor::{Value, from_slice, to_vec};
 use std::collections::BTreeMap;
 
@@ -12,6 +13,10 @@ const CONTENT_TYPE_HEADER: i128 = 3;
 // Algorithm identifier for Ed25519
 const ALG_EDDSA: i128 = -8;
 
+/// Data structure that may be serialized to/from a COSE_Sign1 CBOR structure.
+///
+/// CoseEnvelope does not carry the signature data, but may be signed to create
+/// valid cryptographically signed COSE_Sign1 CBOR bytes.
 pub struct CoseEnvelope {
     protected: BTreeMap<Value, Value>,
     unprotected: BTreeMap<Value, Value>,
@@ -19,18 +24,11 @@ pub struct CoseEnvelope {
 }
 
 impl CoseEnvelope {
-    pub fn of(
-        content_type: String,
+    pub fn new(
         protected: BTreeMap<Value, Value>,
         unprotected: BTreeMap<Value, Value>,
         payload: Vec<u8>,
     ) -> Self {
-        let mut protected = protected;
-        protected.insert(
-            Value::Integer(CONTENT_TYPE_HEADER),
-            Value::Text(content_type),
-        );
-
         CoseEnvelope {
             protected,
             unprotected,
@@ -38,7 +36,25 @@ impl CoseEnvelope {
         }
     }
 
-    pub fn from_cose_sign1_ed25519(data: &[u8], public_key: &PublicKey) -> Result<Self> {
+    /// Create a new envelope of content type.
+    /// Creates header maps for both protected and unprotected headers.
+    pub fn of_content_type(content_type: String, payload: Vec<u8>) -> Self {
+        let mut protected = BTreeMap::new();
+        protected.insert(
+            Value::Integer(CONTENT_TYPE_HEADER),
+            Value::Text(content_type),
+        );
+
+        CoseEnvelope {
+            protected,
+            unprotected: BTreeMap::new(),
+            payload,
+        }
+    }
+
+    /// Create a CoseEnvelope from COSE_Sign1 CBOR bytes.
+    /// Verifies the signature in the COSE data. If successful, returns a CoseEnvelope.
+    pub fn from_cose_sign1_ed25519(data: &[u8]) -> Result<Self> {
         // Parse COSE_Sign1 structure
         let cose_sign1: Vec<Value> = from_slice(data)?;
 
@@ -58,6 +74,15 @@ impl CoseEnvelope {
 
         // Deserialize protected headers
         let protected: BTreeMap<Value, Value> = from_slice(protected_bytes)?;
+
+        // Get kid header
+        let kid = match protected.get(&Value::Integer(KID_HEADER)) {
+            Some(Value::Text(kid)) => kid,
+            _ => return Err(Error::ValueError("No kid header".into())),
+        };
+
+        // Decode Ed25519 public key from DID key in kid header
+        let public_key = decode_ed25519_did_key(kid)?;
 
         let unprotected = match &cose_sign1[1] {
             Value::Map(map) => map.clone(),
@@ -105,7 +130,7 @@ impl CoseEnvelope {
         let to_be_verified = to_vec(&sig_structure)?;
 
         // Verify signature
-        if verify(&to_be_verified, &signature, public_key).is_err() {
+        if verify(&to_be_verified, &signature, &public_key).is_err() {
             return Err(Error::SignatureVerificationError(
                 "Signature verification failed".into(),
             ));
@@ -119,6 +144,8 @@ impl CoseEnvelope {
         })
     }
 
+    /// Sign envelope with private key
+    /// Returns valid CBOR COSE_Sign1 bytes, signed with Ed25519 signature scheme.
     pub fn sign_ed25519(mut self, secret_key: &SecretKey) -> Result<Vec<u8>> {
         let public_key = get_public_key(secret_key);
 
@@ -165,5 +192,15 @@ impl CoseEnvelope {
 
         // Serialize the COSE_Sign1 structure to CBOR
         Ok(to_vec(&cose_sign1)?)
+    }
+
+    /// Deserialize the body of the envelope into a given type
+    /// The type must implement `DeserializeOwned.
+    pub fn deserialize_body<T>(&self) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let result = serde_cbor::from_slice(&self.payload)?;
+        Ok(result)
     }
 }
