@@ -1,6 +1,7 @@
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use serde_cbor;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,17 +10,36 @@ pub const ARCHIVE_CONTENT_TYPE: &str = "application/vnd.szdt.szdt+cbor";
 
 /// Represents the contents of a file
 /// The file is inlined as bytes into the archive.
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct File {
     /// Suggested path for this file
     pub path: PathBuf,
     /// The raw file bytes
     pub content: Vec<u8>,
+    /// Key-value metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<BTreeMap<serde_cbor::Value, serde_cbor::Value>>,
 }
 
 impl File {
     pub fn new(path: PathBuf, content: Vec<u8>) -> File {
-        File { path, content }
+        File {
+            path,
+            content,
+            meta: None,
+        }
+    }
+
+    pub fn new_with_meta(
+        path: PathBuf,
+        content: Vec<u8>,
+        meta: BTreeMap<serde_cbor::Value, serde_cbor::Value>,
+    ) -> File {
+        File {
+            path,
+            content,
+            meta: Some(meta),
+        }
     }
 
     pub fn read(dir: &Path, path: &Path) -> Result<File> {
@@ -30,7 +50,7 @@ impl File {
 }
 
 /// A link to an external resource that can be found in one or more locations.
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Link {
     /// Suggested path for this link
     pub path: PathBuf,
@@ -38,6 +58,9 @@ pub struct Link {
     pub urls: Vec<String>,
     /// Hash of the file (SHA256 in multihash format)
     pub filehash: Vec<u8>,
+    /// Key-value metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<BTreeMap<serde_cbor::Value, serde_cbor::Value>>,
 }
 
 impl Link {
@@ -46,18 +69,33 @@ impl Link {
             path,
             urls: url,
             filehash,
+            meta: None,
+        }
+    }
+
+    pub fn new_with_meta(
+        path: PathBuf,
+        url: Vec<String>,
+        filehash: Vec<u8>,
+        meta: BTreeMap<serde_cbor::Value, serde_cbor::Value>,
+    ) -> Link {
+        Link {
+            path,
+            urls: url,
+            filehash,
+            meta: Some(meta),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(tag = "type")]
 pub enum FileKind {
     File(File),
     Link(Link),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Archive {
     pub nickname: String,
     pub files: Vec<File>,
