@@ -2,6 +2,7 @@ use crate::did::{decode_ed25519_did_key, encode_ed25519_did_key};
 use crate::ed25519::{SecretKey, get_public_key, sign, vec_to_signature, verify};
 use crate::error::{Error, Result};
 use serde::de::DeserializeOwned;
+use serde_cbor::tags::Tagged;
 use serde_cbor::{Value, from_slice, to_vec};
 use std::collections::BTreeMap;
 
@@ -12,6 +13,8 @@ const CONTENT_TYPE_HEADER: i128 = 3;
 
 // Algorithm identifier for Ed25519
 const ALG_EDDSA: i128 = -8;
+
+const TAG_COSE_SIGN1: u64 = 18;
 
 /// Data structure that may be serialized to/from a COSE_Sign1 CBOR structure.
 ///
@@ -163,12 +166,7 @@ impl CoseEnvelope {
         let protected_bytes = to_vec(&self.protected_headers)?;
 
         // Prepare the signature input
-        // Sig_structure = [
-        //   context : "Signature1",
-        //   body_protected : bstr,
-        //   external_aad : bstr,
-        //   payload : bstr
-        // ]
+        // See <https://www.rfc-editor.org/rfc/rfc9052.html#section-4.4>
         let sig_structure = vec![
             Value::Text("Signature1".to_string()),
             Value::Bytes(protected_bytes.clone()),
@@ -190,8 +188,11 @@ impl CoseEnvelope {
             Value::Bytes(signature.to_vec()),
         ];
 
+        // Tag as COSE_Sign1
+        let cose_sign1_tagged = Tagged::new(Some(TAG_COSE_SIGN1), cose_sign1);
+
         // Serialize the COSE_Sign1 structure to CBOR
-        Ok(to_vec(&cose_sign1)?)
+        Ok(to_vec(&cose_sign1_tagged)?)
     }
 
     /// Deserialize the body of the envelope into a given type
