@@ -171,9 +171,9 @@ mod tests {
         let private_key = generate_private_key();
 
         // Sign the envelope
-        let signed_data = envelope.sign_ed25519(&private_key).unwrap();
+        let signed_data = envelope.to_cose_sign1_ed25519(&private_key).unwrap();
 
-        let envelope2 = CoseEnvelope::from_cose_sign1_ed25519(&signed_data).unwrap();
+        let envelope2 = CoseEnvelope::from_cose_sign1(&signed_data).unwrap();
 
         let body2: Vec<u8> = envelope2.body;
 

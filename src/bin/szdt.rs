@@ -57,7 +57,7 @@ fn archive(dir: PathBuf, private_key: String) {
         .expect("Invalid private key (wrong number of bytes)");
 
     let signed_cbor_bytes = CoseEnvelope::of_content_type(ARCHIVE_CONTENT_TYPE.to_string(), body)
-        .sign_ed25519(&private_key)
+        .to_cose_sign1_ed25519(&private_key)
         .expect("Unable to sign envelope");
 
     let output_path = dir.with_extension("szdt");
@@ -72,7 +72,7 @@ fn unarchive(file_path: PathBuf) {
     let bytes = std::fs::read(&file_path).expect("Should be able to read file");
 
     let envelope =
-        CoseEnvelope::from_cose_sign1_ed25519(&bytes).expect("Must be valid COSE_Sign1 structure");
+        CoseEnvelope::from_cose_sign1(&bytes).expect("Must be valid COSE_Sign1 structure");
 
     let archive: Archive = envelope
         .deserialize_body()

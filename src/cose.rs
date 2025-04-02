@@ -54,7 +54,7 @@ impl CoseEnvelope {
 
     /// Create a CoseEnvelope from COSE_Sign1 CBOR bytes.
     /// Verifies the signature in the COSE data. If successful, returns a CoseEnvelope.
-    pub fn from_cose_sign1_ed25519(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose_sign1(bytes: &[u8]) -> Result<Self> {
         // Parse COSE_Sign1 structure
         let cose_sign1: Vec<Value> = from_slice(bytes)?;
 
@@ -146,7 +146,7 @@ impl CoseEnvelope {
 
     /// Sign envelope with private key
     /// Returns valid CBOR COSE_Sign1 bytes, signed with Ed25519 signature scheme.
-    pub fn sign_ed25519(mut self, secret_key: &SecretKey) -> Result<Vec<u8>> {
+    pub fn to_cose_sign1_ed25519(mut self, secret_key: &SecretKey) -> Result<Vec<u8>> {
         let public_key = get_public_key(secret_key);
 
         // Insert DID for public key
