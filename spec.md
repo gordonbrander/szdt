@@ -98,7 +98,7 @@ type File = {
     type: "File";
     path: string;
     content: Uint8Array; // File bytes
-    meta: Record<string | number, unknown>; // Arbtrary metadata
+    meta?: Record<string | number, unknown>; // Arbtrary metadata
 }
 
 type Link = {
@@ -106,7 +106,7 @@ type Link = {
     path: string;
     urls: string[]; // HTTP, magnet, etc
     filehash: Uint8Array; // multihash SHA-256 of file bytes
-    meta: Record<string | number, unknown>; // Arbtrary metadata
+    meta?: Record<string | number, unknown>; // Arbtrary metadata
 }
 
 type Contact = {
