@@ -55,7 +55,7 @@ The format is made up of two parts:
 - an outer signed [CBOR COSE_Sign1](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) envelope, proving the authenticity of the data
 - an inner CBOR object describing the archive data
 
-The outer COSE_Sign1 envelope has the following high-level structure:
+The outer COSE_Sign1 envelope is described in [RFC 9052](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer). It has the following high-level structure:
 
 ```typescript
 // TODO redo this in CBOR Diagnostic Language.
@@ -67,9 +67,11 @@ type COSE_Sign1 = [
 ];
 ```
 
-SZDT archives should include specific header data in the protected headers.
+The COSE_Sign1 envelope used for SZDT should be tagged with [CBOR tag 18, the tag for `COSE_Sign1`](https://www.rfc-editor.org/rfc/rfc9052.html#section-4.2-2). SZDT authoring programs must tag the envelope with this tag. SZDT clients should attempt to read the COSE_Sign1 envelope, even if the envelope is not tagged.
 
-- `kid`: a DID which resolves to a public key that can be used to verify the signature. Only [`did:key`](https://github.com/digitalbazaar/did-method-key) is expected to be supported at this time.
+The envelope should include specific header data in the protected headers:
+
+- `kid`: a DID which resolves to a public key that can be used to verify the signature. Only the [`did:key`](https://github.com/digitalbazaar/did-method-key) is expected to be supported at this time. The `did:key` must encode an `Ed25519` public key.
 - `cty`: a content type of `application/vnd.szdt.archive+cbor`
 
 ```typescript
