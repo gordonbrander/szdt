@@ -69,7 +69,7 @@ type COSE_Sign1 = [
 
 SZDT archives are expected to include specific header data in the protected headers.
 
-- `kid`: a DID which resolves to a public key that can be used to verify the signature.
+- `kid`: a DID which resolves to a public key that can be used to verify the signature. Only [`did:key`](https://github.com/digitalbazaar/did-method-key) is expected to be supported at this time.
 - `cty`: a content type of `application/vnd.szdt.archive+cbor`
 
 ```typescript
@@ -85,8 +85,8 @@ The body bytes contain a CBOR encoded `Archive` object, with the following high-
 // Decoded from cbor bytes in memo body
 // for cty "application/vnd.szdt.archive+cbor"
 type Archive = {
+    name: string; // identifier that is unique to the public key
     timestamp: number; // Timestamp denoting when this archive was created.
-    nickname: string; // Suggested name for this archive
     files: Array<File | Link>;
     contacts: Contact[];
     urls: []; // URLS where updates for this archive may be found
@@ -96,6 +96,7 @@ type File = {
     type: "File";
     path: string;
     content: Uint8Array; // File bytes
+    meta: Record<string | number, unknown>; // Arbtrary metadata
 }
 
 type Link = {
@@ -103,31 +104,34 @@ type Link = {
     path: string;
     urls: string[]; // HTTP, magnet, etc
     filehash: Uint8Array; // multihash SHA-256 of file bytes
-    infohash?: Uint8Array; // BitTorrent v2 infohash (optional)
+    meta: Record<string | number, unknown>; // Arbtrary metadata
 }
 
 type Contact = {
-    nickname: string; // Suggested petname for key
-    pubkey: string; //
+    nickname: string; // Suggested name for key
+    pubkey: string; // Ed25519 public key
 }
 ```
 
 - `timestamp`: a timestamp denoting when this archive was created.
-- `nickname`: a human-friendly nickname for the archive.
+- `name`: a name for the archive. The name may be used to logically identify the archive. For example, a client may use the name as a directory name when unpacking archive contents.
 - `files`: an array of `File` or `Link` structures, represented as CBOR maps.
   - `File`
     - `path`: a suggested file path when unpacking the archive
     - `content`: the raw bytes of the original file contents
+    - `meta`: a CBOR map of arbitrary metadata. Archive authors may use this field to record additional comments and library metadata such as ISBNs, etc.
   - `Link`
     - `path`: a suggested file path when unpacking the archive
-    - `urls`: an array of URLs (typically HTTP or magnet links) for the resource.
+    - `urls`: an array of URLs where future updates to the archive may be found. URLs typically include multiple HTTP URLs, but may include any valid URL type, including [magnet links](https://en.wikipedia.org/wiki/Magnet_URI_scheme) to torrents, etc.
     - `filehash`: the [multihash](https://github.com/multiformats/multihash) SHA2-256 hash of the raw file bytes.
-    - `infohash` (optional): an optional BitTorrent v2 infohash for the file
-- `urls`: an array of URLs (typically HTTP or magnet links) where future updates to the archive may be found.
+    - `meta`: a CBOR map of arbitrary metadata. Archive authors may use this field to record additional comments and library metadata such as ISBNs, etc.
+- `urls`: an array of URLs where future updates to the archive may be found. URLs typically include multiple HTTP URLs, but may include any valid URL type, including [magnet links](https://en.wikipedia.org/wiki/Magnet_URI_scheme) to torrents, etc.
 - `contacts`: an array of zero or more `Contact` structures, represented as CBOR maps. Can be used by clients to build up their own address book of contacts.
   - `Contact` contains
     - `pubkey`: An Ed25519 public key, acting as the identifier for the contact (multicodec encoded)
     - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
+
+Meta fields are provided in many fields of the archive to support workflows where catalog metadata, such as ISBNs, are stored alongside the actual file bytes and URLs. We expect some archives may consist entirely of catalog metadata and URLs. Distributing metadata can, in many cases, be as valuable as distributing the archival data itself.
 
 ### Signing archives
 
@@ -176,8 +180,6 @@ The `filehash` is the SHA-256 hash in [multihash](https://github.com/multiformat
 Clients may choose to treat archives as versioned resources, where the pubkey is the logical identifier for the archive, and updates use a Last-Write-Wins strategy, using the archive timestamp.
 
 > **Note**: Since the archive is signed, we can trust that the timestamp is expressing the author's intention regarding which version of the archive should be considered most recent.
-
-Archives may also provide a `parent` field containing a link to previous revisions. This gives clients additional information about the update history. Clients may use this information for archiving purposes, or to implement finer-grained merge and conflict resolution strategies (think Git).
 
 Notably, authors are free to embed structures like CRDTs in the file portions of the format, allowing for even finer-grained merge strategies, although this is outside the scope of this specification, and up to the author.
 
