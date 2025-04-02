@@ -187,7 +187,7 @@ impl CoseEnvelope {
             Value::Bytes(protected_bytes),
             Value::Map(self.unprotected_headers),
             Value::Bytes(self.body),
-            Value::Bytes(signature),
+            Value::Bytes(signature.to_vec()),
         ];
 
         // Serialize the COSE_Sign1 structure to CBOR
