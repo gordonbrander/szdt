@@ -75,7 +75,7 @@ fn unarchive(file_path: PathBuf) {
         CoseEnvelope::from_cose_sign1(&bytes).expect("Must be valid COSE_Sign1 structure");
 
     let archive: Archive = envelope
-        .deserialize_body()
+        .deserialize_payload()
         .expect("Should be able to deserialize archive");
 
     let dir = file_path.with_extension("");

@@ -157,7 +157,7 @@ mod tests {
         let envelope = CoseEnvelope::of_content_type(ARCHIVE_CONTENT_TYPE.into(), buffer);
 
         // Deserialize the archive from the envelope
-        let deserialized_archive: Archive = envelope.deserialize_body().unwrap();
+        let deserialized_archive: Archive = envelope.deserialize_payload().unwrap();
 
         // Verify the deserialized archive matches the original
         assert_eq!(deserialized_archive, original_archive);
@@ -175,7 +175,7 @@ mod tests {
 
         let envelope2 = CoseEnvelope::from_cose_sign1(&signed_data).unwrap();
 
-        let body2: Vec<u8> = envelope2.body;
+        let body2: Vec<u8> = envelope2.payload;
 
         assert_eq!(body, body2);
     }

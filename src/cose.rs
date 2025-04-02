@@ -21,37 +21,37 @@ const TAG_COSE_SIGN1: u64 = 18;
 /// CoseEnvelope does not carry the signature data, but may be signed to create
 /// valid cryptographically signed COSE_Sign1 CBOR bytes.
 pub struct CoseEnvelope {
-    pub protected_headers: BTreeMap<Value, Value>,
-    pub unprotected_headers: BTreeMap<Value, Value>,
-    pub body: Vec<u8>,
+    pub protected: BTreeMap<Value, Value>,
+    pub unprotected: BTreeMap<Value, Value>,
+    pub payload: Vec<u8>,
 }
 
 impl CoseEnvelope {
     pub fn new(
-        protected_headers: BTreeMap<Value, Value>,
-        unprotected_headers: BTreeMap<Value, Value>,
-        body: Vec<u8>,
+        protected: BTreeMap<Value, Value>,
+        unprotected: BTreeMap<Value, Value>,
+        payload: Vec<u8>,
     ) -> Self {
         CoseEnvelope {
-            protected_headers,
-            unprotected_headers,
-            body,
+            protected,
+            unprotected,
+            payload,
         }
     }
 
     /// Create a new envelope of content type.
     /// Creates header maps for both protected and unprotected headers.
-    pub fn of_content_type(content_type: String, body: Vec<u8>) -> Self {
-        let mut protected_headers = BTreeMap::new();
-        protected_headers.insert(
+    pub fn of_content_type(content_type: String, payload: Vec<u8>) -> Self {
+        let mut protected = BTreeMap::new();
+        protected.insert(
             Value::Integer(CONTENT_TYPE_HEADER),
             Value::Text(content_type),
         );
 
         CoseEnvelope {
-            protected_headers,
-            unprotected_headers: BTreeMap::new(),
-            body,
+            protected,
+            unprotected: BTreeMap::new(),
+            payload,
         }
     }
 
@@ -70,16 +70,16 @@ impl CoseEnvelope {
         // Extract components
 
         // Get protected header bytes
-        let protected_headers_bytes = match &cose_sign1[0] {
+        let protected_bytes = match &cose_sign1[0] {
             Value::Bytes(bytes) => bytes,
             _ => return Err(Error::ValueError("Invalid protected header format".into())),
         };
 
         // Deserialize protected headers
-        let protected_headers: BTreeMap<Value, Value> = from_slice(protected_headers_bytes)?;
+        let protected: BTreeMap<Value, Value> = from_slice(protected_bytes)?;
 
         // Get kid header
-        let kid = match protected_headers.get(&Value::Integer(KID_HEADER)) {
+        let kid = match protected.get(&Value::Integer(KID_HEADER)) {
             Some(Value::Text(kid)) => kid,
             _ => return Err(Error::ValueError("No kid header".into())),
         };
@@ -87,7 +87,7 @@ impl CoseEnvelope {
         // Decode Ed25519 public key from DID key in kid header
         let public_key = decode_ed25519_did_key(kid)?;
 
-        let unprotected_headers = match &cose_sign1[1] {
+        let unprotected = match &cose_sign1[1] {
             Value::Map(map) => map.clone(),
             _ => {
                 return Err(Error::ValueError(
@@ -96,7 +96,7 @@ impl CoseEnvelope {
             }
         };
 
-        let body = match &cose_sign1[2] {
+        let payload = match &cose_sign1[2] {
             Value::Bytes(bytes) => bytes.clone(),
             _ => return Err(Error::ValueError("Invalid payload format".into())),
         };
@@ -109,7 +109,7 @@ impl CoseEnvelope {
         let signature = vec_to_signature(signature_vec)?;
 
         // Verify that algorithm is Ed25519
-        if let Some(Value::Integer(alg)) = protected_headers.get(&Value::Integer(ALG_HEADER)) {
+        if let Some(Value::Integer(alg)) = protected.get(&Value::Integer(ALG_HEADER)) {
             if *alg != ALG_EDDSA {
                 return Err(Error::ValueError(
                     "Unsupported signing algorithm. Only Ed25519 is supported.".into(),
@@ -124,9 +124,9 @@ impl CoseEnvelope {
         // Construct Sig_structure for verification
         let sig_structure = vec![
             Value::Text("Signature1".to_string()),
-            Value::Bytes(protected_headers_bytes.clone()),
+            Value::Bytes(protected_bytes.clone()),
             Value::Bytes(vec![]), // Empty external_aad
-            Value::Bytes(body.clone()),
+            Value::Bytes(payload.clone()),
         ];
 
         // Serialize Sig_structure to CBOR bytes
@@ -141,9 +141,9 @@ impl CoseEnvelope {
 
         // Return the envelope
         Ok(CoseEnvelope {
-            protected_headers,
-            unprotected_headers,
-            body,
+            protected,
+            unprotected,
+            payload,
         })
     }
 
@@ -153,17 +153,17 @@ impl CoseEnvelope {
         let public_key = get_public_key(secret_key);
 
         // Insert DID for public key
-        self.protected_headers.insert(
+        self.protected.insert(
             Value::Integer(KID_HEADER),
             Value::Text(encode_ed25519_did_key(&public_key)),
         );
 
         // Insert algorithm header hint
-        self.protected_headers
+        self.protected
             .insert(Value::Integer(ALG_HEADER), Value::Integer(ALG_EDDSA));
 
         // Serialize protected headers to CBOR bytes (required for COSE_Sign1)
-        let protected_bytes = to_vec(&self.protected_headers)?;
+        let protected_bytes = to_vec(&self.protected)?;
 
         // Prepare the signature input
         // See <https://www.rfc-editor.org/rfc/rfc9052.html#section-4.4>
@@ -171,7 +171,7 @@ impl CoseEnvelope {
             Value::Text("Signature1".to_string()),
             Value::Bytes(protected_bytes.clone()),
             Value::Bytes(vec![]), // Empty external_aad
-            Value::Bytes(self.body.clone()),
+            Value::Bytes(self.payload.clone()),
         ];
 
         // Serialize Sig_structure to CBOR bytes
@@ -183,8 +183,8 @@ impl CoseEnvelope {
         // Create the COSE_Sign1 structure
         let cose_sign1 = vec![
             Value::Bytes(protected_bytes),
-            Value::Map(self.unprotected_headers),
-            Value::Bytes(self.body),
+            Value::Map(self.unprotected),
+            Value::Bytes(self.payload),
             Value::Bytes(signature.to_vec()),
         ];
 
@@ -197,11 +197,11 @@ impl CoseEnvelope {
 
     /// Deserialize the body of the envelope into a given type
     /// The type must implement `DeserializeOwned.
-    pub fn deserialize_body<T>(&self) -> Result<T>
+    pub fn deserialize_payload<T>(&self) -> Result<T>
     where
         T: DeserializeOwned,
     {
-        let result = serde_cbor::from_slice(&self.body)?;
+        let result = serde_cbor::from_slice(&self.payload)?;
         Ok(result)
     }
 }
