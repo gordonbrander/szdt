@@ -114,11 +114,12 @@ It is recommended that `exp` and `nbf` fields be included to specify the expiry 
 
 > TODO: define canonical hashing process over file collections that is generic to content type.
 >
-> Needs to capture:
+> Needs to have:
 > - File path
 > - File bytes
 > - Other file metadata such as modified and ACLs?
 >   - Check what TAR supports
+> - Streamable (ideally hash as we go), rather than two-pass
 >
 > Options:
 > - Canonically encode as TAR and sign
