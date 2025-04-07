@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a
 
-A container format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
+A simple format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
 
 ## Motivation
 
@@ -22,12 +22,12 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## The idea
 
-**TLDR**: a cryptographically-signed CBOR object containing:
+**TLDR**: an archive file with an attached set of assertions encoded as JWTs, describing...
 
-- **Files** stored as raw bytes
+- **Signatures** cryptographically proving authenticity independent of origin
+- **Hashes** cryptographically proving integrity independent of origin
 - **Links** to additional external files, with redundant URLs and/or magnet links for retrieval, plus checksums for veryifying file integrity.
 - **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic signature** proving the authenticity of the archive
 
 ## Goals
 
@@ -48,12 +48,79 @@ If there are many copies, and many ways to find them, then data can survive the 
 
 ## Speculative specification
 
-**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links to additional data.
+SZDT is a self-verifying archival format. The archive comes with an attached set of cryptographic assertions, encoded as JWTs that give you everything you need to verify the archive's authenticity and integrity.
 
-The format is made up of two parts:
+SZDT is built on top of widely deployed archive formats (TAR, ZIP), making it easy to adopt into existing archival workflows, and ensuring data can be unpacked using standard tools.
 
-- an outer signed [CBOR COSE_Sign1](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) envelope, proving the authenticity of the data
-- an inner CBOR object describing the archive data
+The format is made up of three parts:
+
+- An archive file (e.g., ZIP)
+- A collection of cryptographic assertions (JWTs) attached to the archive file
+- A manifest file, containing additional metadata such as links and contacts
+
+Assertions can be used to prove the authenticity and integrity of the archive data, as well as other things. They are based on zero-trust cryptographic proofs, and can be verified regardless of where the data comes from.
+
+### Assertion envelope
+
+SZDT assertions are canonically encoded as JSON Web Tokens (JWTs) when signing and verifying. For this reason, all assertions are valid JWTs. JWTs are broadly adopted, making SZDT easy to adopt in existing workflows. The canonical JWT encoding also allows for future flexibility in encoding, since signatures will remain valid across many different serialization formats, provided they can be serialized to JWT for signing.
+
+Any number of assertions can be attached to an archive. These assertionss are gathered into a single JSON structure called the "assertion envelope".
+
+```json
+{
+  "knd": "szdt/ast",
+  "ast": [
+    // Assertions encoded as JWTs
+  ]
+}
+```
+
+Trust is established through the cryptographic signatures of the assertions. The assertion envelope itself is unsigned, allowing any number of authors to contribute additional assertions without invalidating the envelope.
+
+### Content integrity claim
+
+The most common assertion is a content proof, which proves the integrity of the data to which it is attached.
+
+Content proof is based on the signed SHA-256 hash of the archive contents.
+
+Example:
+
+```json
+{
+  "knd": "szdt/ast/content", // Claim kind
+  "alg": "EdDSA", // Algorithm used to sign
+  "iss": "did:key:z6Mk...", // DID key of the entity that issued the assertio  "exp": 1630456800, // Expiry time of the assertion (UNIX timestamp in seconds)
+  "hash": {
+    "alg": "sha256", // Hash algorithm used to compute the digest
+    "digest": "..." // Base64url-encoded digest
+  },
+  "meta": {}
+}
+```
+
+The following JWT fields are required in the content proof assertion:
+
+- `alg`: The cryptographic algorithm used to sign the assertion. Only `EdDSA` is supported at this time.
+- `iss`: The DID of the entity that issued the assertion. Only `did:key` is supported at this time.
+- `hash`: The hash algorithm used to compute the digest. Only `sha256` is supported at this time.
+- `digest`: The base64url-encoded digest of the archive contents.
+- `meta`: Additional arbitrary metadata about the assertion.
+
+Other valid JWT fields, such as `aud` may be used to provide additional information about the assertion, but are not required.
+
+It is recommended that `exp` and `nbf` fields be included to specify the expiry and not-before times of the assertion, respectively.
+
+### Content integrity signing process
+
+### Updates claim
+
+
+
+### Cryptosuite
+
+
+
+### Attaching assertions to archives
 
 The outer COSE_Sign1 envelope is described in [RFC 9052](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer). It has the following high-level structure:
 
