@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a
 
-A container format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
+A simple format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
 
 ## Motivation
 
@@ -22,12 +22,12 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## The idea
 
-**TLDR**: a cryptographically-signed CBOR object containing:
+**TLDR**: an archive file with an attached set of assertions encoded as JWTs, describing...
 
-- **Files** stored as raw bytes
+- **Signatures** cryptographically proving authenticity independent of origin
+- **Hashes** cryptographically proving integrity independent of origin
 - **Links** to additional external files, with redundant URLs and/or magnet links for retrieval, plus checksums for veryifying file integrity.
 - **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic signature** proving the authenticity of the archive
 
 ## Goals
 
@@ -48,12 +48,137 @@ If there are many copies, and many ways to find them, then data can survive the 
 
 ## Speculative specification
 
-**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links to additional data.
+SZDT is a self-verifying archival format. The archive comes with an attached set of cryptographic assertions, encoded as JWTs that give you everything you need to verify the archive's authenticity and integrity.
 
-The format is made up of two parts:
+SZDT is built on top of widely deployed archive formats (TAR, ZIP), making it easy to adopt into existing archival workflows, and ensuring data can be unpacked using standard tools.
 
-- an outer signed [CBOR COSE_Sign1](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) envelope, proving the authenticity of the data
-- an inner CBOR object describing the archive data
+The format is made up of three parts:
+
+- An archive file (e.g., ZIP)
+- A collection of cryptographic assertions (JWTs) attached to the archive file
+- A manifest file, containing additional metadata such as links and contacts
+
+Assertions can be used to prove the authenticity and integrity of the archive data, as well as other things. They are based on zero-trust cryptographic proofs, and can be verified regardless of where the data comes from.
+
+### Assertion envelope
+
+SZDT assertions are canonically encoded as JSON Web Tokens (JWTs) when signing and verifying. For this reason, all assertions are valid JWTs. JWTs are broadly adopted, making SZDT easy to adopt in existing workflows. The canonical JWT encoding also allows for future flexibility in encoding, since signatures will remain valid across many different serialization formats, provided they can be serialized to JWT for signing.
+
+Any number of assertions can be attached to an archive. These assertionss are gathered into a single JSON structure called the "assertion envelope".
+
+```json
+{
+  "knd": "szdt/ast",
+  "ast": [
+    // Assertions encoded as JWTs
+  ]
+}
+```
+
+Trust is established through the cryptographic signatures of the assertions. The assertion envelope itself is unsigned, allowing any number of authors to contribute additional assertions without invalidating the envelope.
+
+### Content assertion
+
+The most common assertion is a content assertion, which proves the integrity of the data to which it is attached.
+
+Content proof is based on the signed SHA-256 hash of the archive contents.
+
+Example:
+
+```json
+{
+  "knd": "szdt/ast/content", // Assertion kind
+  "alg": "EdDSA", // Algorithm used to sign
+  "iss": "did:key:z6Mk...", // DID key of the entity that is issuing the assertion
+  "hash": {
+    "alg": "sha256", // Hash algorithm used to compute the digest
+    "digest": "..." // Base64url-encoded digest
+  },
+  "meta": {}
+}
+```
+
+The following JWT fields are required in content assertions:
+
+- `alg`: The cryptographic algorithm used to sign the assertion. Only `EdDSA` is supported at this time.
+- `iss`: The DID of the entity that issued the assertion. Only `did:key` is supported at this time.
+- `hash.alg`: The hash algorithm used to compute the digest. Only `sha256` is supported at this time.
+- `hash.digest`: The base64url-encoded digest of the archive contents.
+- `meta`: Additional arbitrary metadata about the assertion.
+
+Other valid JWT fields, such as `aud` may be used to provide additional information about the assertion, but are not required.
+
+It is recommended that `exp` and `nbf` fields be included to specify the expiry and not-before times of the assertion, respectively.
+
+#### Content hashing process
+
+> TODO: define canonical hashing process over file collections that is generic to content type.
+>
+> Needs to have:
+> - File path
+> - File bytes
+> - Other file metadata such as modified and ACLs?
+>   - Check what TAR supports
+> - Streamable (ideally hash as we go), rather than two-pass
+>
+> Options:
+> - Canonically encode as TAR and sign
+> - Canonically encode as CBOR and sign
+
+### Updates assertion
+
+Updates assertions provide a list of URLs that can be checked for updates to the content of the archive. Archives are logically identified by their `iss` and `id` fields, where `iss` is the DID key of the agent that issued the assertion and `id` is a unique identifier for the archive for that agent.
+
+Example:
+
+```json
+{
+  "knd": "szdt/ast/updates", // Claim kind
+  "alg": "EdDSA", // Algorithm used to sign
+  "iss": "did:key:z6Mk...", // DID key of the agent that issued the assertion
+  "iat": 1630456800, // Issued at time (UNIX timestamp in seconds)
+  "id": "urn:uuid:123e4567-e89b-12d3-a456-426614174000", // Unique identifier for the archive
+  "urls": [
+    "https://example.com/archive.tar",
+    "https://example2.com/archive.tar"
+  ],
+  "meta": {}
+}
+```
+
+The following JWT fields are required in content assertions:
+
+- `iss`: DID key of the agent that issued the assertion.
+- `iat`: Issued at time (UNIX timestamp in seconds). Used to determine the order of updates.
+- `id`: Unique identifier for the archive. Must be a valid URI. A UUID URN is often used.
+- `urls`: List of URLs that can be checked for updates to the content of the archive.
+- `meta`: Arbitrary key-value metadata.
+
+#### Archive update sematics
+
+Update assertions define an update history **according to the key used to sign the assertion**. Since there may be multiple update assertions signed by different keys, a single archive file may describe multiple possible update lineages. It is up to the consumer to determine which issuing agent (`iss`), and therefore which update history, they are interested in following.
+
+Beginning with the update assertions from the `iss` agent you are interested in,
+
+- Select the newest update assertion by comparing the `iat` field of each valid assertion from the desired `iss`.
+- Retrieve the content of the archive from any of the URLs specified in the `urls` field of the assertion.
+  - If the archive is not found, try another URL in the list.
+  - If all URLs fail, stop.
+- Upon successfully retrieving an archive, check for an update assertion from the same `iss`.
+  - If an update assertion from the same key is not found, stop.
+  - If no valid update assertions from the same key are found, stop.
+  - If one or more update assertions from the same key are found, select the newest one by comparing the `iat` field of each valid assertion from the same key.
+- Verify the signature of the newest valid update assertion using the public key associated with the `iss`.
+  - If the signature is invalid, stop.
+- The assertion is considered to be the newest revision of the archive.
+
+It is up to clients how to handle updates. For example, a client designed to checks out the most recent version of an archive may replace an old versions with the new one, whereas an archival client may choose to keep all revisions.
+
+### Cryptosuite
+
+
+
+### Attaching assertions to archives
 
 The outer COSE_Sign1 envelope is described in [RFC 9052](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer). It has the following high-level structure:
 
