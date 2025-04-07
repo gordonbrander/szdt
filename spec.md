@@ -77,9 +77,9 @@ Any number of assertions can be attached to an archive. These assertionss are ga
 
 Trust is established through the cryptographic signatures of the assertions. The assertion envelope itself is unsigned, allowing any number of authors to contribute additional assertions without invalidating the envelope.
 
-### Content integrity claim
+### Content assertion
 
-The most common assertion is a content proof, which proves the integrity of the data to which it is attached.
+The most common assertion is a content assertion, which proves the integrity of the data to which it is attached.
 
 Content proof is based on the signed SHA-256 hash of the archive contents.
 
@@ -87,9 +87,9 @@ Example:
 
 ```json
 {
-  "knd": "szdt/ast/content", // Claim kind
+  "knd": "szdt/ast/content", // Assertion kind
   "alg": "EdDSA", // Algorithm used to sign
-  "iss": "did:key:z6Mk...", // DID key of the entity that issued the assertio  "exp": 1630456800, // Expiry time of the assertion (UNIX timestamp in seconds)
+  "iss": "did:key:z6Mk...", // DID key of the entity that is issuing the assertion
   "hash": {
     "alg": "sha256", // Hash algorithm used to compute the digest
     "digest": "..." // Base64url-encoded digest
@@ -98,23 +98,68 @@ Example:
 }
 ```
 
-The following JWT fields are required in the content proof assertion:
+The following JWT fields are required in content assertions:
 
 - `alg`: The cryptographic algorithm used to sign the assertion. Only `EdDSA` is supported at this time.
 - `iss`: The DID of the entity that issued the assertion. Only `did:key` is supported at this time.
-- `hash`: The hash algorithm used to compute the digest. Only `sha256` is supported at this time.
-- `digest`: The base64url-encoded digest of the archive contents.
+- `hash.alg`: The hash algorithm used to compute the digest. Only `sha256` is supported at this time.
+- `hash.digest`: The base64url-encoded digest of the archive contents.
 - `meta`: Additional arbitrary metadata about the assertion.
 
 Other valid JWT fields, such as `aud` may be used to provide additional information about the assertion, but are not required.
 
 It is recommended that `exp` and `nbf` fields be included to specify the expiry and not-before times of the assertion, respectively.
 
-### Content integrity signing process
+#### Content assertion hashing process
 
-### Updates claim
+### Updates assertion
 
+Updates assertions provide a list of URLs that can be checked for updates to the content of the archive.
 
+Example:
+
+```json
+{
+  "knd": "szdt/ast/updates", // Claim kind
+  "alg": "EdDSA", // Algorithm used to sign
+  "iss": "did:key:z6Mk...", // DID key of the entity that issued the assertion
+  "iat": 1630456800, // Issued at time (UNIX timestamp in seconds)
+  "id": "urn:uuid:123e4567-e89b-12d3-a456-426614174000", // Unique identifier for the archive
+  "urls": [
+    "https://example.com/archive.tar",
+    "https://example2.com/archive.tar"
+  ],
+  "meta": {}
+}
+```
+
+The following JWT fields are required in content assertions:
+
+- `iss`: DID key of the entity that issued the assertion
+- `iat`: Issued at time (UNIX timestamp in seconds)
+- `id`: Unique identifier for the archive. Must be a valid URI. A UUID URN is often used.
+- `urls`: List of URLs that can be checked for updates to the content of the archive
+- `meta`: Arbitrary key-value metadata
+
+#### Update sematics
+
+Update assertions define an update history **according to the key used to sign the assertion**. Since there may be multiple update assertions signed by different keys, a single archive file may describe multiple possible update lineages. It is up to the consumer to determine which issuing agent (`iss`), and therefore which update history, they are interested in following.
+
+Beginning with the update assertions from the `iss` agent you are interested in,
+
+- Select the newest update assertion by comparing the `iat` field of each valid assertion from the desired `iss`.
+- Retrieve the content of the archive from any of the URLs specified in the `urls` field of the assertion.
+  - If the archive is not found, try another URL in the list.
+  - If all URLs fail, stop.
+- Upon successfully retrieving an archive, check for an update assertion from the same `iss`.
+  - If an update assertion from the same key is not found, stop.
+  - If no valid update assertions from the same key are found, stop.
+  - If one or more update assertions from the same key are found, select the newest one by comparing the `iat` field of each valid assertion from the same key.
+- Verify the signature of the newest valid update assertion using the public key associated with the `iss`.
+  - If the signature is invalid, stop.
+- The assertion is considered to be the newest revision of the archive.
+
+It is up to clients how to handle updates. For example, a client designed to checks out the most recent version of an archive may replace an old versions with the new one, whereas an archival client may choose to keep all revisions.
 
 ### Cryptosuite
 
