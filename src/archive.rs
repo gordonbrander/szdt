@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::util::now_epoch_secs;
 use serde::{Deserialize, Serialize};
 use serde_cbor;
 use std::collections::BTreeMap;
@@ -97,7 +98,8 @@ pub enum FileKind {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Archive {
-    pub nickname: String,
+    pub name: String,
+    pub timestamp: u64,
     pub files: Vec<File>,
     pub urls: Vec<String>,
 }
@@ -107,7 +109,8 @@ impl Archive {
         Archive {
             files,
             urls: Vec::new(),
-            nickname: String::new(),
+            name: String::new(),
+            timestamp: now_epoch_secs(),
         }
     }
 
@@ -182,7 +185,8 @@ mod tests {
 
         // Create an archive with these files
         let original_archive = Archive {
-            nickname: "Test Archive".to_string(),
+            name: "Test Archive".to_string(),
+            timestamp: now_epoch_secs(),
             files: vec![file1, file2],
             urls: vec!["https://example.com/archive".to_string()],
         };
