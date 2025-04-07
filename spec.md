@@ -110,11 +110,23 @@ Other valid JWT fields, such as `aud` may be used to provide additional informat
 
 It is recommended that `exp` and `nbf` fields be included to specify the expiry and not-before times of the assertion, respectively.
 
-#### Content assertion hashing process
+#### Content hashing process
+
+> TODO: define canonical hashing process over file collections that is generic to content type.
+>
+> Needs to capture:
+> - File path
+> - File bytes
+> - Other file metadata such as modified and ACLs?
+>   - Check what TAR supports
+>
+> Options:
+> - Canonically encode as TAR and sign
+> - Canonically encode as CBOR and sign
 
 ### Updates assertion
 
-Updates assertions provide a list of URLs that can be checked for updates to the content of the archive.
+Updates assertions provide a list of URLs that can be checked for updates to the content of the archive. Archives are logically identified by their `iss` and `id` fields, where `iss` is the DID key of the agent that issued the assertion and `id` is a unique identifier for the archive for that agent.
 
 Example:
 
@@ -122,7 +134,7 @@ Example:
 {
   "knd": "szdt/ast/updates", // Claim kind
   "alg": "EdDSA", // Algorithm used to sign
-  "iss": "did:key:z6Mk...", // DID key of the entity that issued the assertion
+  "iss": "did:key:z6Mk...", // DID key of the agent that issued the assertion
   "iat": 1630456800, // Issued at time (UNIX timestamp in seconds)
   "id": "urn:uuid:123e4567-e89b-12d3-a456-426614174000", // Unique identifier for the archive
   "urls": [
@@ -135,13 +147,13 @@ Example:
 
 The following JWT fields are required in content assertions:
 
-- `iss`: DID key of the entity that issued the assertion
-- `iat`: Issued at time (UNIX timestamp in seconds)
+- `iss`: DID key of the agent that issued the assertion.
+- `iat`: Issued at time (UNIX timestamp in seconds). Used to determine the order of updates.
 - `id`: Unique identifier for the archive. Must be a valid URI. A UUID URN is often used.
-- `urls`: List of URLs that can be checked for updates to the content of the archive
-- `meta`: Arbitrary key-value metadata
+- `urls`: List of URLs that can be checked for updates to the content of the archive.
+- `meta`: Arbitrary key-value metadata.
 
-#### Update sematics
+#### Archive update sematics
 
 Update assertions define an update history **according to the key used to sign the assertion**. Since there may be multiple update assertions signed by different keys, a single archive file may describe multiple possible update lineages. It is up to the consumer to determine which issuing agent (`iss`), and therefore which update history, they are interested in following.
 
