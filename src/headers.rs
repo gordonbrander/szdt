@@ -132,6 +132,16 @@ impl Headers {
             .flat_map(|header| header.values())
             .collect()
     }
+
+    /// Append a header to the headers list.
+    pub fn push(&mut self, header: Header) {
+        self.0.push(header);
+    }
+
+    /// Remove all headers with the given key.
+    pub fn drop(&mut self, key: &str) {
+        self.0.retain(|header| header.key() != key);
+    }
 }
 
 impl From<&str> for Headers {
