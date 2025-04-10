@@ -28,9 +28,24 @@ impl Header {
         &self.value
     }
 
+    /// Set value of header.
+    /// This method sets the literal string value.
+    /// To set multiple values, use `set_values` method.
+    pub fn set_value(&mut self, value: String) {
+        self.value = value;
+    }
+
     /// Split the header value by commas
     pub fn values(&self) -> Vec<String> {
         self.value.split(',').map(|s| s.to_string()).collect()
+    }
+
+    /// Set multiple values of header.
+    /// This method sets multiple values for the header, joining them with a comma,
+    /// per the HTTP specification.
+    /// To set the literal string value, use `set_value` method.
+    pub fn set_values(&mut self, values: &Vec<String>) {
+        self.value = values.join(",");
     }
 }
 
@@ -267,5 +282,36 @@ mod tests {
             Foo";
 
         assert_eq!(String::from_utf8(writer).unwrap(), expected_headers);
+    }
+
+    #[test]
+    fn test_set_values() {
+        let mut header = Header::new("accept", "text/html");
+
+        let values = vec![
+            "application/json".to_string(),
+            "application/xml".to_string(),
+            "text/plain".to_string(),
+        ];
+
+        header.set_values(&values);
+        assert_eq!(
+            header.value(),
+            "application/json,application/xml,text/plain"
+        );
+
+        // Check that values() method returns the correct values
+        let parsed_values = header.values();
+        assert_eq!(parsed_values, values);
+
+        // Test with empty vector
+        let empty_values: Vec<String> = Vec::new();
+        header.set_values(&empty_values);
+        assert_eq!(header.value(), "");
+
+        // Test with single value
+        let single_value = vec!["text/html".to_string()];
+        header.set_values(&single_value);
+        assert_eq!(header.value(), "text/html");
     }
 }
