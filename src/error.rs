@@ -3,6 +3,7 @@ pub enum Error {
     IoError(String, std::io::Error),
     SerializationError(String, serde_cbor::Error),
     Ed25519Error(String, ed25519_dalek::ed25519::Error),
+    JsonError(serde_json::Error),
     DecodingError(String),
     ValidationError(String),
     SignatureVerificationError(String),
@@ -15,6 +16,7 @@ impl std::error::Error for Error {
             Error::IoError(_, err) => Some(err),
             Error::SerializationError(_, err) => Some(err),
             Error::Ed25519Error(_, err) => Some(err),
+            Error::JsonError(err) => Some(err),
             Error::DecodingError(_) => None,
             Error::ValidationError(_) => None,
             Error::SignatureVerificationError(_) => None,
@@ -29,6 +31,7 @@ impl std::fmt::Display for Error {
             Error::IoError(msg, _) => write!(f, "IO error: {}", msg),
             Error::SerializationError(msg, _) => write!(f, "Serialization error: {}", msg),
             Error::Ed25519Error(msg, _) => write!(f, "Ed25519 error: {}", msg),
+            Error::JsonError(err) => write!(f, "JSON error: {}", err),
             Error::DecodingError(msg) => write!(f, "Decoding error: {}", msg),
             Error::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             Error::SignatureVerificationError(msg) => write!(f, "Signature error: {}", msg),
@@ -40,6 +43,12 @@ impl std::fmt::Display for Error {
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Error::IoError(err.to_string(), err)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Error::JsonError(err)
     }
 }
 

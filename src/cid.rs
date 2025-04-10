@@ -1,3 +1,5 @@
+use crate::error::{Error, Result};
+use data_encoding;
 use sha2::{Digest, Sha256};
 
 const CID_VERSION: u8 = 0x01;
@@ -16,9 +18,9 @@ impl Cid {
     }
 
     /// Construct a CIDv1 from bytes representing a CIDv1
-    pub fn from_cid_bytes(cid_bytes: Vec<u8>) -> Result<Self, String> {
+    pub fn from_cid_bytes(cid_bytes: Vec<u8>) -> Result<Self> {
         if cid_bytes.len() != 36 {
-            return Err("Invalid CID length".to_string());
+            return Err(Error::ValueError("Invalid CID length".to_string()));
         }
 
         let version = cid_bytes[0];
@@ -31,14 +33,29 @@ impl Cid {
             || hash_algo != MULTIHASH_SHA256
             || hash_len != 32
         {
-            return Err("Invalid CID format".to_string());
+            return Err(Error::ValueError("Invalid CID format".to_string()));
         }
 
         let hash = cid_bytes[4..].to_vec();
         Ok(Self(hash))
     }
 
-    /// Create a CIDv1 for bytes
+    /// Parse a CIDv1 from a string representation.
+    /// CID must be multicodec base32 lowercase encoded.
+    pub fn from_cid_str(cid_str: &str) -> Result<Self> {
+        // Check if the CID starts with "b" (multicodec code for base32 lowercase encoded)
+        if !cid_str.starts_with("b") {
+            return Err(Error::ValueError(
+                "Invalid CID. CID must be multicodec base32 lowercase encoded (starts with 'b')"
+                    .to_string(),
+            ));
+        }
+        let cid_body = &cid_str[1..]; // drop the "b"
+        let cid_bytes = data_encoding::BASE32_NOPAD_NOCASE.decode(cid_body.as_bytes())?;
+        Self::from_cid_bytes(cid_bytes)
+    }
+
+    /// Create a CIDv1 by hashing raw bytes
     pub fn new(bytes: impl AsRef<[u8]>) -> Self {
         let sha256_hash = Sha256::digest(bytes.as_ref());
         Self::from_sha256(sha256_hash.to_vec())

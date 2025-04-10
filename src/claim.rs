@@ -1,7 +1,9 @@
 use crate::cid::Cid;
-use crate::ed25519::{SecretKey, sign};
+use crate::did::decode_ed25519_did_key;
+use crate::ed25519::{SecretKey, sign, vec_to_signature, verify};
+use crate::error::{Error, Result};
 use data_encoding;
-use serde_json;
+use serde_json::{self, Value};
 
 pub struct AuthorClaim {
     pub iss: String,
@@ -12,6 +14,7 @@ pub struct AuthorClaim {
 }
 
 const JWT_ED25519_ALGORITHM: &str = "EdDSA";
+const KND_AUTHOR: &str = "szdt/author";
 
 impl AuthorClaim {
     /// Create a new author claim.
@@ -25,15 +28,74 @@ impl AuthorClaim {
         }
     }
 
+    pub fn parse(jwt: &str) -> Result<Self> {
+        let parts = jwt.splitn(3, '.').collect::<Vec<&str>>();
+
+        let headers = data_encoding::BASE64URL.decode(parts[0].as_bytes())?;
+        let payload = data_encoding::BASE64URL.decode(parts[1].as_bytes())?;
+        let signature_vec = &data_encoding::BASE64URL.decode(parts[2].as_bytes())?;
+        let signature = vec_to_signature(signature_vec)?;
+
+        let Value::Object(headers) = serde_json::from_slice(&headers)? else {
+            return Err(Error::ValueError(
+                "JWT headers must be a JSON object.".to_string(),
+            ));
+        };
+
+        if headers.get("knd").and_then(|v| v.as_str()) != Some(KND_AUTHOR) {
+            return Err(Error::ValueError(
+                "`knd` header is not `szdt/author`".to_string(),
+            ));
+        }
+
+        let Value::Object(payload) = serde_json::from_slice(&payload)? else {
+            return Err(Error::ValueError(
+                "JWT payload must be a JSON object.".to_string(),
+            ));
+        };
+
+        let iss = payload
+            .get("iss")
+            .and_then(|v| v.as_str())
+            .ok_or(Error::ValueError("JWT missing iss".to_string()))?;
+
+        // Get public key from did:key
+        let public_key = decode_ed25519_did_key(iss)?;
+
+        let cid = Cid::from_cid_str(
+            payload
+                .get("sub")
+                .and_then(|v| v.as_str())
+                .ok_or(Error::ValueError("JWT missing sub".to_string()))?,
+        )?;
+        let iat = payload
+            .get("iat")
+            .and_then(|v| v.as_u64())
+            .ok_or(Error::ValueError("JWT missing iat".to_string()))?;
+        let exp = payload.get("exp").and_then(|v| v.as_u64());
+        let nbf = payload.get("nbf").and_then(|v| v.as_u64());
+
+        // Verify signature
+        verify(&cid.to_bytes(), &signature, &public_key)?;
+
+        Ok(AuthorClaim {
+            iss: iss.to_string(),
+            cid,
+            exp,
+            iat,
+            nbf,
+        })
+    }
+
     /// Sign the author claim using the given private key.
     /// Returns the JWT token string.
     pub fn sign_jwt(&self, private_key: &SecretKey) -> String {
         let headers = serde_json::json!({
             "alg": JWT_ED25519_ALGORITHM,
+            "knd": KND_AUTHOR,
         });
 
         let payload = serde_json::json!({
-            "knd": "szdt/claim/author",
             "iss": self.iss,
             "sub": self.cid.to_string(),
             "exp": self.exp,
