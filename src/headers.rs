@@ -21,13 +21,15 @@ impl Header {
         &self.key
     }
 
-    /// Get the header value
+    /// Get the header value.
+    /// This method does not parse multiple values out of headers.
+    /// To split header value on comma, use `values` method.
     pub fn value(&self) -> &str {
         &self.value
     }
 
     /// Split the header value by commas
-    pub fn split_values(&self) -> Vec<String> {
+    pub fn values(&self) -> Vec<String> {
         self.value.split(',').map(|s| s.to_string()).collect()
     }
 }
@@ -99,7 +101,7 @@ impl Headers {
 
     /// Get the first value of a header with the given key
     /// Note: header keys are normalized to lowercase, so key should be lowercase.
-    pub fn get_first_value(&self, key: &str) -> Option<&Header> {
+    pub fn first_value(&self, key: &str) -> Option<&Header> {
         self.0.iter().find(|header| header.key() == key)
     }
 
@@ -108,11 +110,11 @@ impl Headers {
     /// the header value by comma, per RFC 7230 section 3.2.2.
     /// <https://datatracker.ietf.org/doc/html/rfc7230>
     /// Note: header keys are normalized to lowercase, so key should be lowercase.
-    pub fn get_all_values(&self, key: &str) -> Vec<String> {
+    pub fn values(&self, key: &str) -> Vec<String> {
         self.0
             .iter()
             .filter(|header| header.key() == key)
-            .flat_map(|header| header.split_values())
+            .flat_map(|header| header.values())
             .collect()
     }
 }
@@ -175,15 +177,15 @@ mod tests {
 
         let headers = Headers::parse(&mut headers_reader);
 
-        let first_host = headers.get_first_value("host");
+        let first_host = headers.first_value("host");
         assert!(first_host.is_some());
         assert_eq!(first_host.unwrap().value, "example.com");
 
-        let first_user_agent = headers.get_first_value("user-agent");
+        let first_user_agent = headers.first_value("user-agent");
         assert!(first_user_agent.is_some());
         assert_eq!(first_user_agent.unwrap().value, "Mozilla/5.0");
 
-        let non_existent = headers.get_first_value("non-existent");
+        let non_existent = headers.first_value("non-existent");
         assert!(non_existent.is_none());
     }
 
@@ -199,7 +201,7 @@ mod tests {
 
         let headers = Headers::parse(&mut headers_reader);
 
-        let all_accept_values = headers.get_all_values("accept");
+        let all_accept_values = headers.values("accept");
         assert_eq!(
             all_accept_values,
             vec![
@@ -209,7 +211,7 @@ mod tests {
             ]
         );
 
-        let non_existent = headers.get_all_values("non-existent");
+        let non_existent = headers.values("non-existent");
         assert!(non_existent.is_empty());
 
         let mut body = String::new();
