@@ -67,6 +67,21 @@ impl Headers {
         Headers(headers)
     }
 
+    /// Write headers as string to the given writer.
+    /// Per HTTP header spec, headers are separated by CLRF and a trailing CLRF
+    /// marks the end of headers.
+    pub fn write_headers<W>(&self, writer: &mut W) -> std::io::Result<()>
+    where
+        W: std::io::Write,
+    {
+        for header in &self.0 {
+            write!(writer, "{}: {}\r\n", header.key, header.value)?;
+        }
+        // Write empty line to indicate end of headers
+        write!(writer, "\r\n")?;
+        Ok(())
+    }
+
     /// Get the first value of a header with the given key
     pub fn get_first_value(&self, key: &str) -> Option<&Header> {
         self.0.iter().find(|header| header.key == key)
@@ -169,5 +184,31 @@ mod tests {
         let mut body = String::new();
         _ = headers_reader.read_to_string(&mut body);
         assert_eq!(body, "Body");
+    }
+
+    #[test]
+    fn test_write_headers() {
+        let mut headers_reader = Cursor::new(
+            "Host: example.com\r\n\
+            User-Agent: Mozilla/5.0\r\n\
+            Accept: text/html\r\n\
+            Connection: keep-alive\r\n\
+            \r\n\
+            Foo"
+            .as_bytes(),
+        );
+
+        let headers = Headers::parse(&mut headers_reader);
+
+        let mut writer: Vec<u8> = Vec::new();
+        headers.write_headers(&mut writer).unwrap();
+
+        let expected_headers = "Host: example.com\r\n\
+            User-Agent: Mozilla/5.0\r\n\
+            Accept: text/html\r\n\
+            Connection: keep-alive\r\n\
+            \r\n";
+
+        assert_eq!(String::from_utf8(writer).unwrap(), expected_headers);
     }
 }
