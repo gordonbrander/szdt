@@ -1,4 +1,5 @@
 pub mod archive;
+pub mod cid;
 pub mod cose;
 pub mod did;
 pub mod ed25519;
