@@ -32,7 +32,7 @@ pub fn vec_to_public_key(bytes: &Vec<u8>) -> Result<PublicKey> {
 
 /// Sign bytes with a private key.
 /// Returns signature bytes.
-pub fn sign(bytes: &Vec<u8>, secret_key: &SecretKey) -> SignatureBytes {
+pub fn sign(bytes: &[u8], secret_key: &SecretKey) -> SignatureBytes {
     // Generate a keypair
     let signing_key = SigningKey::from_bytes(secret_key);
     signing_key.sign(&bytes).to_bytes()

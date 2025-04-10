@@ -110,7 +110,11 @@ When unwrapping a file, tools may use `content-type` or `dn` headers as hints to
 
 ### Cryptographic assertions
 
-SZDT claims and proofs are encoded as [JSON Web Tokens](https://jwt.io) (JWTs), placed in a header field of the SZDT envelope. JWTs are broadly adopted, making SZDT easy to adopt in existing workflows.
+SZDT claims and proofs are encoded as [JSON Web Tokens](https://datatracker.ietf.org/doc/html/rfc7519) (JWTs), placed in a header field of the SZDT envelope. JWTs are broadly adopted, making SZDT claims easy to adopt in existing workflows.
+
+```
+szdt-claim: <JWT>
+```
 
 Any number of assertions can be attached to an archive (described as multiple headers). These assertions are gathered into a single JSON structure called the "assertion envelope".
 
