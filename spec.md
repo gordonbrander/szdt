@@ -22,11 +22,12 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## The idea
 
-**TLDR**: an archive file with an attached set of assertions encoded as JWTs, describing...
+**TLDR**: a self-verifiying archive file with...
 
-- **Signatures** cryptographically proving authenticity independent of origin
-- **Hashes** cryptographically proving integrity independent of origin
-- **Links** to additional external files, with redundant URLs and/or magnet links for retrieval, plus checksums for veryifying file integrity.
+- **Cryptographic signatures** proving authenticity independent of origin
+- **Cryptographic hashes** proving integrity independent of origin
+- **Files** encoded as bytes
+- **Links** to additional external files, with redundant URLs and/or magnet links for retrieval
 - **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
 
 ## Goals
@@ -48,23 +49,70 @@ If there are many copies, and many ways to find them, then data can survive the 
 
 ## Speculative specification
 
-SZDT is a self-verifying archival format. The archive comes with an attached set of cryptographic assertions, encoded as JWTs that give you everything you need to verify the archive's authenticity and integrity.
+SZDT is a self-verifying format. A SZDT file comes with an attached set of zero-trust cryptographic proofs giving you everything you need to verify the archive's authenticity and integrity, regardless of where it came from.
 
-SZDT is built on top of widely deployed archive formats (TAR, ZIP), making it easy to adopt into existing archival workflows, and ensuring data can be unpacked using standard tools.
+SZDT is built on top of widely deployed formats (HTTP headers, JWTs), making it easy to adopt into existing archival workflows.
 
-The format is made up of three parts:
+The format is made up of two independent specifications:
 
-- An archive file (e.g., ZIP)
-- A collection of cryptographic assertions (JWTs) attached to the archive file
-- A manifest file, containing additional metadata such as links and contacts
+- An HTTP-style header envelope, containing metadata and proofs
+- An archive manifest file, encoded as CBOR
 
-Assertions can be used to prove the authenticity and integrity of the archive data, as well as other things. They are based on zero-trust cryptographic proofs, and can be verified regardless of where the data comes from.
+Each of these formats may be used independently. The envelope format may be used encode metadata and proofs for arbitrary file types, such as TAR or ZIP.
 
-### Assertion envelope
+### Header envelope
 
-SZDT assertions are canonically encoded as JSON Web Tokens (JWTs) when signing and verifying. For this reason, all assertions are valid JWTs. JWTs are broadly adopted, making SZDT easy to adopt in existing workflows. The canonical JWT encoding also allows for future flexibility in encoding, since signatures will remain valid across many different serialization formats, provided they can be serialized to JWT for signing.
+SZDT metadata is encoded in the same way as HTTP headers. That is, a series of key-value pairs, separated by a colon (":"), and terminated by a CLRF (`\r\n`).
 
-Any number of assertions can be attached to an archive. These assertionss are gathered into a single JSON structure called the "assertion envelope".
+An abbreviated ABNF definition is provided below. For the full ABNF definition, consult [RFC 9112](https://datatracker.ietf.org/doc/html/rfc9112).
+
+```abnf
+HTTP-message  = start-line CRLF
+                  *( field-line CRLF )
+                  CRLF
+                  [ message-body ]
+
+field-line = field-name ":" OWS field-value OWS
+```
+
+Each field line consists of a case-insensitive field name followed by a colon (":"), optional leading whitespace, the field line value, and optional trailing whitespace.
+
+Headers are terminated by a final CRLF (`\r\n`) (displayed in text as a blank line).
+
+Example:
+
+```
+szdt/1.0
+content-type: "text/plain"
+
+Body text
+```
+
+#### Reserved headers
+
+HTTP header field names that are reserved in the HTTP standard should be considered to be reserved in SZDT, and to have the same semantics as in HTTP.
+
+In addition, SZDT defines a set of reserved header fields.
+
+- `dn`: "Display Name". A hint suggesting a filename for the underlying file. Value must be a valid file path and must not contain any path traversal characters. Consumers may use this hint in any way they see fit.
+
+Other than that, producers are free to define custom headers describing arbitrary metadata. Any number of fields may be included in the headers.
+
+Just as in HTTP, the message body may contain arbitrary data. This means an SZDT envelope may be used to wrap any other file type.
+
+#### Wrapping and unwrapping file data
+
+SZDT tooling should provide tools for "wrapping" and "unwrapping" file data of any type.
+
+When wrapping file bytes in an SZDT envelope, tools should encode a `content-type` header describing the [Media Type](https://www.iana.org/assignments/media-types/media-types.xhtml) of the original file. Tools may also include a `dn` header describing a hint for the filename of the original file.
+
+When unwrapping a file, tools may use `content-type` or `dn` headers as hints to determine an extension for the the unwrapped file.
+
+### Cryptographic assertions
+
+SZDT claims and proofs are encoded as [JSON Web Tokens](https://jwt.io) (JWTs), placed in a header field of the SZDT envelope. JWTs are broadly adopted, making SZDT easy to adopt in existing workflows.
+
+Any number of assertions can be attached to an archive (described as multiple headers). These assertions are gathered into a single JSON structure called the "assertion envelope".
 
 ```json
 {
