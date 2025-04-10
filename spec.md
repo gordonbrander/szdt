@@ -88,17 +88,19 @@ content-type: "text/plain"
 Body text
 ```
 
+Just as in HTTP, the message body may contain arbitrary data. This means an SZDT envelope may be used to wrap any other file type.
+
 #### Reserved headers
 
-HTTP header field names that are reserved in the HTTP standard should be considered to be reserved in SZDT, and to have the same semantics as in HTTP.
+Header field names that are reserved in HTTP should be considered reserved in SZDT, and to have the same semantics as in HTTP.
 
 In addition, SZDT defines a set of reserved header fields.
 
 - `dn`: "Display Name". A hint suggesting a filename for the underlying file. Value must be a valid file path and must not contain any path traversal characters. Consumers may use this hint in any way they see fit.
+- `szdt-cid`: A content identifier (CID) that content-addresses the body part of the SZDT envelope. The CID may be used as an integrity check for the body, and as a target for signatures making claims about the body. CIDs in this header must follow the format outlined in the CID section of this specification.
+- `szdt-claim`: A [JSON Web Token](https://datatracker.ietf.org/doc/html/rfc7519) (JWT) making a cryptographic claim. SZDT uses claims to make authorship and other assertions about the body. Multiple claims may be made by including multiple `szdt-claim` headers or by using multiple header syntax (comma-separated values).
 
 Other than that, producers are free to define custom headers describing arbitrary metadata. Any number of fields may be included in the headers.
-
-Just as in HTTP, the message body may contain arbitrary data. This means an SZDT envelope may be used to wrap any other file type.
 
 #### Wrapping and unwrapping file data
 
@@ -108,6 +110,10 @@ When wrapping file bytes in an SZDT envelope, tools should encode a `content-typ
 
 When unwrapping a file, tools may use `content-type` or `dn` headers as hints to determine an extension for the the unwrapped file.
 
+### CIDS (Content Identifiers)
+
+https://dasl.ing/cid.html
+
 ### Cryptographic assertions
 
 SZDT claims and proofs are encoded as [JSON Web Tokens](https://datatracker.ietf.org/doc/html/rfc7519) (JWTs), placed in a header field of the SZDT envelope. JWTs are broadly adopted, making SZDT claims easy to adopt in existing workflows.
@@ -116,18 +122,9 @@ SZDT claims and proofs are encoded as [JSON Web Tokens](https://datatracker.ietf
 szdt-claim: <JWT>
 ```
 
-Any number of assertions can be attached to an archive (described as multiple headers). These assertions are gathered into a single JSON structure called the "assertion envelope".
+Any number of claims can be attached to an archive (described as multiple headers or comma-separated in a single header).
 
-```json
-{
-  "knd": "szdt/ast",
-  "ast": [
-    // Assertions encoded as JWTs
-  ]
-}
-```
-
-Trust is established through the cryptographic signatures of the assertions. The assertion envelope itself is unsigned, allowing any number of authors to contribute additional assertions without invalidating the envelope.
+Trust is established through the cryptographic proofs provided in these claims. The headers in the envelope are themselves unsigned. This allows any number of authors to contribute additional assertions without invalidating previous proofs.
 
 ### Content assertion
 
