@@ -1,5 +1,9 @@
 use sha2::{Digest, Sha256};
 
+const CID_VERSION: u8 = 0x01;
+const MULTICODEC_RAW: u8 = 0x55;
+const MULTIHASH_SHA256: u8 = 0x12;
+
 /// Represents a CIDv1 with SHA-256 hash using raw codec (0x55)
 pub struct Cid(Vec<u8>);
 
@@ -10,13 +14,13 @@ impl Cid {
         let mut cid_bytes = Vec::with_capacity(36);
 
         // version 1
-        cid_bytes.push(0x01);
+        cid_bytes.push(CID_VERSION);
 
         // raw codec (0x55)
-        cid_bytes.push(0x55);
+        cid_bytes.push(MULTICODEC_RAW);
 
         // sha2-256 hash algorithm (0x12)
-        cid_bytes.push(0x12);
+        cid_bytes.push(MULTIHASH_SHA256);
 
         // hash length (32 bytes for sha256)
         cid_bytes.push(32);
@@ -72,9 +76,9 @@ mod tests {
         let cid = Cid::from(text);
 
         // Verify the CID starts with the correct prefix
-        assert_eq!(cid.0[0], 0x01); // version 1
-        assert_eq!(cid.0[1], 0x55); // raw codec
-        assert_eq!(cid.0[2], 0x12); // sha2-256
+        assert_eq!(cid.0[0], CID_VERSION); // version 1
+        assert_eq!(cid.0[1], MULTICODEC_RAW); // raw codec
+        assert_eq!(cid.0[2], MULTIHASH_SHA256); // sha2-256
         assert_eq!(cid.0[3], 32); // hash length
 
         // Check total length (prefix + hash)
@@ -87,9 +91,9 @@ mod tests {
         let cid = Cid::new(bytes);
 
         // Verify the structure is correct
-        assert_eq!(cid.0[0], 0x01);
-        assert_eq!(cid.0[1], 0x55);
-        assert_eq!(cid.0[2], 0x12);
+        assert_eq!(cid.0[0], CID_VERSION);
+        assert_eq!(cid.0[1], MULTICODEC_RAW);
+        assert_eq!(cid.0[2], MULTIHASH_SHA256);
         assert_eq!(cid.0[3], 32);
         assert_eq!(cid.0.len(), 36);
     }
