@@ -11,6 +11,8 @@ pub struct AuthorClaim {
     pub nbf: Option<u64>,
 }
 
+const JWT_ED25519_ALGORITHM: &str = "EdDSA";
+
 impl AuthorClaim {
     /// Create a new author claim.
     pub fn new(iss: String, cid: Cid, exp: Option<u64>, iat: u64, nbf: Option<u64>) -> Self {
@@ -27,11 +29,11 @@ impl AuthorClaim {
     /// Returns the JWT token string.
     pub fn sign_jwt(&self, private_key: &SecretKey) -> String {
         let headers = serde_json::json!({
-            "alg": "HS256",
-            "typ": "JWT",
+            "alg": JWT_ED25519_ALGORITHM,
         });
 
         let payload = serde_json::json!({
+            "knd": "szdt/claim/author",
             "iss": self.iss,
             "sub": self.cid.to_string(),
             "exp": self.exp,
