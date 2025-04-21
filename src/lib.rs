@@ -1,7 +1,9 @@
-pub mod archive;
-pub mod cose;
+pub mod byte_counter_reader;
+pub mod car;
+pub mod dasl_cid;
 pub mod did;
 pub mod ed25519;
 pub mod error;
 pub mod hash;
 pub mod util;
+pub mod varint;
