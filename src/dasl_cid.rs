@@ -1,5 +1,6 @@
 use crate::varint::{self, read_varint_usize};
-use std::io::Read;
+use serde::{Deserialize, Deserializer};
+use std::{io::Read, str::FromStr};
 
 pub const MULTIBASE_BASE32: &str = "b";
 pub const MULTIBASE_BASE2: usize = 0;
@@ -33,17 +34,6 @@ impl DaslCid {
         Self::read_cid_body(reader)
     }
 
-    /// Parse CID from a base32 multibase-encoded string.
-    pub fn parse_str_cid(cid: &str) -> Result<Self, Error> {
-        if !cid.starts_with(MULTIBASE_BASE32) {
-            return Err(Error::UnsupportedMultibase(cid[0..1].to_string()));
-        }
-        let cid_body = &cid[1..];
-        let cid_body_bytes = data_encoding::BASE32_NOPAD_NOCASE.decode(cid_body.as_bytes())?;
-        // Read CID body
-        Self::read_cid_body(&mut cid_body_bytes.as_slice())
-    }
-
     /// Read a CIDv1 from a reader.
     /// Supports CID types specified in <https://dasl.ing/cid.html>.
     fn read_cid_body<R: Read>(reader: &mut R) -> Result<Self, Error> {
@@ -75,6 +65,70 @@ impl DaslCid {
         reader.read_exact(&mut digest)?;
 
         Ok(DaslCid { codec, digest })
+    }
+}
+
+impl FromStr for DaslCid {
+    type Err = Error;
+
+    /// Parse CID from a base32 multibase-encoded string.
+    fn from_str(cid: &str) -> Result<Self, Self::Err> {
+        if !cid.starts_with(MULTIBASE_BASE32) {
+            return Err(Error::UnsupportedMultibase(cid[0..1].to_string()));
+        }
+        let cid_body = &cid[1..];
+        let cid_body_bytes = data_encoding::BASE32_NOPAD_NOCASE.decode(cid_body.as_bytes())?;
+        // Read CID body
+        Self::read_cid_body(&mut cid_body_bytes.as_slice())
+    }
+}
+
+struct CidVisitor;
+
+// Serde visitor for CID deserialization
+impl<'de> serde::de::Visitor<'de> for CidVisitor {
+    type Value = DaslCid;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a string or byte array representing a CID v1")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        DaslCid::from_str(v).map_err(|e| E::custom(format!("Error parsing CID from string: {}", e)))
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(v)
+    }
+
+    fn visit_bytes<E>(self, mut bytes: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        DaslCid::read_binary_cid(&mut bytes)
+            .map_err(|e| E::custom(format!("Error reading CID from bytes: {}", e)))
+    }
+
+    fn visit_borrowed_bytes<E>(self, bytes: &'de [u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_bytes(bytes)
+    }
+}
+
+impl<'de> Deserialize<'de> for DaslCid {
+    fn deserialize<D>(deserializer: D) -> Result<DaslCid, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(CidVisitor)
     }
 }
 
@@ -204,14 +258,14 @@ mod tests {
         // Known value test - this hash is for raw "hello world"
         let cid_str = "bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e";
 
-        let cid = DaslCid::parse_str_cid(cid_str).unwrap();
+        let cid = DaslCid::from_str(cid_str).unwrap();
 
         // Verify it was correctly parsed
         assert_eq!(cid.codec, Codec::Raw);
 
         // Test invalid base prefix
         let invalid_base = "cafybeiczsscdsbs7ffqz55asqdf3smv6klcw3gofszvwlyarci47bgf354";
-        assert!(DaslCid::parse_str_cid(invalid_base).is_err());
+        assert!(DaslCid::from_str(invalid_base).is_err());
     }
 
     #[test]
@@ -245,5 +299,16 @@ mod tests {
         let mut reader = Cursor::new(invalid_digest_len);
         let result = DaslCid::read_binary_cid(&mut reader);
         assert!(matches!(result, Err(Error::Other(_))));
+    }
+
+    #[test]
+    fn test_cid_deserialize_from_str() {
+        use serde_json::json;
+
+        // Test deserializing from string
+        let cid_str = "bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e";
+        let json_str = json!(cid_str);
+        let cid: DaslCid = serde_json::from_value(json_str).unwrap();
+        assert_eq!(cid.codec, Codec::Raw);
     }
 }
