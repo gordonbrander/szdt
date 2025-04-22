@@ -33,10 +33,10 @@ impl<R: Read> Read for ByteCounterReader<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use std::io::{BufReader, Cursor};
 
     #[test]
-    fn test_byte_counter_reader() {
+    fn test_byte_counter_reader_counts_the_bytes() {
         let data = b"hello world";
         let cursor = Cursor::new(data);
         let mut reader = ByteCounterReader::new(cursor);
@@ -63,7 +63,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_reader() {
+    fn test_empty_byte_counter_reader_counts_zero() {
         let data = b"";
         let cursor = Cursor::new(data);
         let mut reader = ByteCounterReader::new(cursor);
@@ -75,21 +75,27 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_reads() {
+    fn test_byte_counter_reader_plays_well_with_bufreader() {
         let data = b"hello world";
         let cursor = Cursor::new(data);
-        let mut reader = ByteCounterReader::new(cursor);
+        let bufcursor = BufReader::new(cursor);
+        let mut reader = ByteCounterReader::new(bufcursor);
 
-        // Read one byte at a time
-        for (i, expected_byte) in data.iter().enumerate() {
-            let mut buf = [0u8; 1];
-            let bytes_read = reader.read(&mut buf).unwrap();
-            assert_eq!(bytes_read, 1);
-            assert_eq!(buf[0], *expected_byte);
-            assert_eq!(reader.read_size(), i + 1);
-        }
+        let mut buf = [0u8; 5];
+        let bytes_read = reader.read(&mut buf).unwrap();
+        assert_eq!(bytes_read, 5);
+        assert_eq!(&buf, b"hello");
+        assert_eq!(reader.read_size(), 5);
 
-        // Verify we've read everything
-        assert_eq!(reader.read_size(), data.len());
+        let mut buf = [0u8; 10];
+        let bytes_read = reader.read(&mut buf).unwrap();
+        assert_eq!(bytes_read, 6);
+        assert_eq!(&buf[..bytes_read], b" world");
+        assert_eq!(reader.read_size(), 11);
+
+        let mut buf = [0u8; 5];
+        let bytes_read = reader.read(&mut buf).unwrap();
+        assert_eq!(bytes_read, 0);
+        assert_eq!(reader.read_size(), 11);
     }
 }
