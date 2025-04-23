@@ -1,5 +1,7 @@
+pub mod base58btc;
 pub mod byte_counter_reader;
 pub mod car;
+pub mod claim;
 pub mod dasl_cid;
 pub mod did;
 pub mod ed25519;

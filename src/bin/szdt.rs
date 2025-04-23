@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use szdt::did::encode_base58btc;
+use szdt::base58btc;
 use szdt::ed25519::generate_private_key;
 
 #[derive(Parser)]
@@ -50,7 +50,7 @@ fn unarchive(_file_path: PathBuf) {
 
 fn genkey() {
     let key = generate_private_key();
-    let encoded_key = encode_base58btc(key);
+    let encoded_key = base58btc::encode(key);
     println!("{}", encoded_key);
 }
 
