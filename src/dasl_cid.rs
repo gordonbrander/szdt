@@ -1,6 +1,6 @@
 use crate::varint::{self, read_varint_usize};
-use serde::{Deserialize, Deserializer};
-use std::{io::Read, str::FromStr};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::io::Read;
 
 pub const MULTIBASE_BASE32: &str = "b";
 pub const MULTIBASE_BASE2: usize = 0;
@@ -19,8 +19,9 @@ pub struct DaslCid {
 }
 
 impl DaslCid {
-    /// Read a binary CID from a reader.
-    pub fn read_binary_cid<R: Read>(reader: &mut R) -> Result<Self, Error> {
+    /// Read a binary CID v1 from a reader.
+    /// Supports CID types specified in <https://dasl.ing/cid.html>.
+    pub fn read_cid<R: Read>(reader: &mut R) -> Result<Self, Error> {
         // CID byte structure at this point:
         // <multibase><version><multicodec><multihash><length><digest>
 
@@ -34,8 +35,7 @@ impl DaslCid {
         Self::read_cid_body(reader)
     }
 
-    /// Read a CIDv1 from a reader.
-    /// Supports CID types specified in <https://dasl.ing/cid.html>.
+    /// Read the body portion of a CID v1 (e.g. the portion without the multibase prefix)
     fn read_cid_body<R: Read>(reader: &mut R) -> Result<Self, Error> {
         // Remaining CID byte structure:
         // <version><multicodec><multihash><length><digest>
@@ -48,7 +48,7 @@ impl DaslCid {
 
         // Parse codec
         let multicodec = read_varint_usize(reader)?;
-        let codec = Codec::parse(multicodec)?;
+        let codec: Codec = multicodec.try_into()?;
 
         // Check multihash. We only support SHA256.
         let multihash = read_varint_usize(reader)?;
@@ -66,13 +66,28 @@ impl DaslCid {
 
         Ok(DaslCid { codec, digest })
     }
+
+    pub fn version(&self) -> usize {
+        CID_VERSION
+    }
+
+    pub fn codec(&self) -> Codec {
+        self.codec
+    }
+
+    pub fn multihash(&self) -> usize {
+        MULTIHASH_SHA256
+    }
+
+    pub fn digest(&self) -> &[u8] {
+        &self.digest
+    }
 }
 
-impl FromStr for DaslCid {
-    type Err = Error;
+impl TryFrom<&str> for DaslCid {
+    type Error = Error;
 
-    /// Parse CID from a base32 multibase-encoded string.
-    fn from_str(cid: &str) -> Result<Self, Self::Err> {
+    fn try_from(cid: &str) -> Result<Self, Self::Error> {
         if !cid.starts_with(MULTIBASE_BASE32) {
             return Err(Error::UnsupportedMultibase(cid[0..1].to_string()));
         }
@@ -80,6 +95,23 @@ impl FromStr for DaslCid {
         let cid_body_bytes = data_encoding::BASE32_NOPAD_NOCASE.decode(cid_body.as_bytes())?;
         // Read CID body
         Self::read_cid_body(&mut cid_body_bytes.as_slice())
+    }
+}
+
+impl TryFrom<&DaslCid> for String {
+    type Error = Error;
+
+    fn try_from(cid: &DaslCid) -> Result<Self, Self::Error> {
+        // <multibase><version><multicodec><multihash><length><digest>
+        let mut buf = Vec::new();
+        buf.extend_from_slice(MULTIBASE_BASE32.as_bytes());
+        varint::write_usize_varint(&mut buf, CID_VERSION)?;
+        varint::write_usize_varint(&mut buf, usize::from(cid.codec))?;
+        varint::write_usize_varint(&mut buf, MULTIHASH_SHA256)?;
+        varint::write_usize_varint(&mut buf, SHA256_DIGEST_LENGTH)?;
+        buf.extend_from_slice(&cid.digest);
+        let encoded = data_encoding::BASE32_NOPAD_NOCASE.encode(&buf);
+        Ok(encoded)
     }
 }
 
@@ -97,7 +129,7 @@ impl<'de> serde::de::Visitor<'de> for CidVisitor {
     where
         E: serde::de::Error,
     {
-        DaslCid::from_str(v).map_err(|e| E::custom(format!("Error parsing CID from string: {}", e)))
+        DaslCid::try_from(v).map_err(|e| E::custom(format!("Error parsing CID from string: {}", e)))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
@@ -111,7 +143,7 @@ impl<'de> serde::de::Visitor<'de> for CidVisitor {
     where
         E: serde::de::Error,
     {
-        DaslCid::read_binary_cid(&mut bytes)
+        DaslCid::read_cid(&mut bytes)
             .map_err(|e| E::custom(format!("Error reading CID from bytes: {}", e)))
     }
 
@@ -120,6 +152,18 @@ impl<'de> serde::de::Visitor<'de> for CidVisitor {
         E: serde::de::Error,
     {
         self.visit_bytes(bytes)
+    }
+}
+
+impl Serialize for DaslCid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let cid_string = String::try_from(self).map_err(|e| {
+            serde::ser::Error::custom(format!("Error converting CID to string: {}", e))
+        })?;
+        serializer.serialize_str(&cid_string)
     }
 }
 
@@ -133,19 +177,30 @@ impl<'de> Deserialize<'de> for DaslCid {
 }
 
 /// Supported codecs for CIDv1.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(usize)]
 pub enum Codec {
-    Raw,
-    DagCbor,
+    Raw = MULTICODEC_RAW,
+    DagCbor = MULTICODEC_DAG_CBOR,
 }
 
-impl Codec {
-    /// Parse a multicodec unsigned varint value (usize) into a `Codec`.
-    pub fn parse(multicodec: usize) -> Result<Codec, Error> {
+impl TryFrom<usize> for Codec {
+    type Error = Error;
+
+    fn try_from(multicodec: usize) -> Result<Self, Self::Error> {
         match multicodec {
             MULTICODEC_RAW => Ok(Codec::Raw),
             MULTICODEC_DAG_CBOR => Ok(Codec::DagCbor),
             _ => Err(Error::UnsupportedCodec(format!("{}", multicodec))),
+        }
+    }
+}
+
+impl From<Codec> for usize {
+    fn from(codec: Codec) -> usize {
+        match codec {
+            Codec::Raw => MULTICODEC_RAW,
+            Codec::DagCbor => MULTICODEC_DAG_CBOR,
         }
     }
 }
@@ -218,9 +273,12 @@ mod tests {
 
     #[test]
     fn test_codec_parse() {
-        assert_eq!(Codec::parse(MULTICODEC_RAW).unwrap(), Codec::Raw);
-        assert_eq!(Codec::parse(MULTICODEC_DAG_CBOR).unwrap(), Codec::DagCbor);
-        assert!(Codec::parse(999).is_err());
+        assert_eq!(Codec::try_from(MULTICODEC_RAW).unwrap(), Codec::Raw);
+        assert_eq!(
+            Codec::try_from(MULTICODEC_DAG_CBOR).unwrap(),
+            Codec::DagCbor
+        );
+        assert!(Codec::try_from(999).is_err());
     }
 
     #[test]
@@ -239,7 +297,7 @@ mod tests {
         ];
 
         let mut reader = Cursor::new(cid_bytes);
-        let cid = DaslCid::read_binary_cid(&mut reader).unwrap();
+        let cid = DaslCid::read_cid(&mut reader).unwrap();
 
         assert_eq!(cid.codec, Codec::Raw);
         assert_eq!(
@@ -258,14 +316,14 @@ mod tests {
         // Known value test - this hash is for raw "hello world"
         let cid_str = "bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e";
 
-        let cid = DaslCid::from_str(cid_str).unwrap();
+        let cid = DaslCid::try_from(cid_str).unwrap();
 
         // Verify it was correctly parsed
         assert_eq!(cid.codec, Codec::Raw);
 
         // Test invalid base prefix
         let invalid_base = "cafybeiczsscdsbs7ffqz55asqdf3smv6klcw3gofszvwlyarci47bgf354";
-        assert!(DaslCid::from_str(invalid_base).is_err());
+        assert!(DaslCid::try_from(invalid_base).is_err());
     }
 
     #[test]
@@ -273,31 +331,31 @@ mod tests {
         // Test invalid multibase
         let invalid_base = [0x01, 0x01, 0x55, 0x12, 0x20];
         let mut reader = Cursor::new(invalid_base);
-        let result = DaslCid::read_binary_cid(&mut reader);
+        let result = DaslCid::read_cid(&mut reader);
         assert!(matches!(result, Err(Error::UnsupportedMultibase(_))));
 
         // Test invalid version
         let invalid_version = [0x00, 0x02, 0x55, 0x12, 0x20];
         let mut reader = Cursor::new(invalid_version);
-        let result = DaslCid::read_binary_cid(&mut reader);
+        let result = DaslCid::read_cid(&mut reader);
         assert!(matches!(result, Err(Error::UnsupportedVersion(_))));
 
         // Test invalid codec
         let invalid_codec = [0x00, 0x01, 0x99, 0x12, 0x20];
         let mut reader = Cursor::new(invalid_codec);
-        let result = DaslCid::read_binary_cid(&mut reader);
+        let result = DaslCid::read_cid(&mut reader);
         assert!(matches!(result, Err(Error::UnsupportedCodec(_))));
 
         // Test invalid hash algorithm
         let invalid_hash = [0x00, 0x01, 0x55, 0x13, 0x20];
         let mut reader = Cursor::new(invalid_hash);
-        let result = DaslCid::read_binary_cid(&mut reader);
+        let result = DaslCid::read_cid(&mut reader);
         assert!(matches!(result, Err(Error::UnsupportedHash(_))));
 
         // Test invalid digest length
         let invalid_digest_len = [0x00, 0x01, 0x55, 0x12, 0x10];
         let mut reader = Cursor::new(invalid_digest_len);
-        let result = DaslCid::read_binary_cid(&mut reader);
+        let result = DaslCid::read_cid(&mut reader);
         assert!(matches!(result, Err(Error::Other(_))));
     }
 
