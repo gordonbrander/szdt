@@ -1,5 +1,6 @@
 use crate::base58btc;
 use crate::ed25519;
+use serde::{Deserialize, Serialize};
 
 /// The multicodec prefix for ed25519 public key is 0xed.
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -56,6 +57,25 @@ impl From<&DidKey> for String {
 
         // Construct the did:key
         format!("{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
+    }
+}
+
+impl Serialize for DidKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl<'de> Deserialize<'de> for DidKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        DidKey::try_from(s.as_str()).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }
 
