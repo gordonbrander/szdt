@@ -1,7 +1,8 @@
-use crate::error::{Error, Result};
 pub use ed25519_dalek::SecretKey;
-use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, Signature, SigningKey, VerifyingKey};
-use ed25519_dalek::{Signer, Verifier};
+use ed25519_dalek::{
+    self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, Signature, Signer, SigningKey, Verifier,
+    VerifyingKey,
+};
 use rand::rngs::OsRng;
 
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
@@ -16,9 +17,9 @@ pub fn get_public_key(secret_key: &SecretKey) -> PublicKey {
 
 /// Convert a Vec<u8> to PublicKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn vec_to_public_key(bytes: &Vec<u8>) -> Result<PublicKey> {
+pub fn slice_to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
     if bytes.len() != PUBLIC_KEY_LENGTH {
-        return Err(Error::ValueError(format!(
+        return Err(Error::InvalidPublicKey(format!(
             "Public key must be {} bytes, got {}",
             PUBLIC_KEY_LENGTH,
             bytes.len()
@@ -46,9 +47,9 @@ pub fn generate_private_key() -> SecretKey {
 
 /// Convert a Vec<u8> to PrivateKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey> {
+pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey, Error> {
     if bytes.len() != SECRET_KEY_LENGTH {
-        return Err(Error::ValueError(format!(
+        return Err(Error::InvalidSecretKey(format!(
             "Private key must be {} bytes, got {}",
             SECRET_KEY_LENGTH,
             bytes.len()
@@ -62,9 +63,9 @@ pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey> {
 
 /// Convert a Vec<u8> to SignatureBytes.
 /// Returns an error if the input is not exactly 64 bytes.
-pub fn vec_to_signature(bytes: &Vec<u8>) -> Result<SignatureBytes> {
+pub fn slice_to_signature(bytes: &[u8]) -> Result<SignatureBytes, Error> {
     if bytes.len() != 64 {
-        return Err(Error::ValueError(format!(
+        return Err(Error::InvalidSignature(format!(
             "Signature must be 64 bytes, got {}",
             bytes.len()
         )));
@@ -80,7 +81,7 @@ pub fn verify(
     bytes: &Vec<u8>,
     signature_bytes: &SignatureBytes,
     public_key: &PublicKey,
-) -> Result<()> {
+) -> Result<(), Error> {
     let verifying_key = VerifyingKey::from_bytes(public_key)?;
     let signature = Signature::from_bytes(signature_bytes);
     // Verify the signature
@@ -89,6 +90,37 @@ pub fn verify(
         Err(_) => Err(Error::SignatureVerificationError(
             "Signature didn't verify".to_string(),
         )),
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    SignatureVerificationError(String),
+    Ed25519Error(ed25519_dalek::ed25519::Error),
+    InvalidPublicKey(String),
+    InvalidSecretKey(String),
+    InvalidSignature(String),
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::SignatureVerificationError(msg) => {
+                write!(f, "Signature verification error: {}", msg)
+            }
+            Error::Ed25519Error(err) => write!(f, "Ed25519 error: {}", err),
+            Error::InvalidPublicKey(msg) => write!(f, "Invalid public key: {}", msg),
+            Error::InvalidSecretKey(msg) => write!(f, "Invalid secret key: {}", msg),
+            Error::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<ed25519_dalek::ed25519::Error> for Error {
+    fn from(err: ed25519_dalek::ed25519::Error) -> Self {
+        Error::Ed25519Error(err)
     }
 }
 
@@ -122,12 +154,12 @@ mod tests {
     fn test_vec_to_public_key() {
         // Valid case
         let valid_bytes = vec![0u8; PUBLIC_KEY_LENGTH];
-        let result = vec_to_public_key(&valid_bytes);
+        let result = slice_to_public_key(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; PUBLIC_KEY_LENGTH - 1];
-        let result = vec_to_public_key(&invalid_bytes);
+        let result = slice_to_public_key(&invalid_bytes);
         assert!(result.is_err());
     }
 
@@ -148,12 +180,12 @@ mod tests {
     fn test_vec_to_signature() {
         // Valid case
         let valid_bytes = vec![0u8; 64];
-        let result = vec_to_signature(&valid_bytes);
+        let result = slice_to_signature(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; 63];
-        let result = vec_to_signature(&invalid_bytes);
+        let result = slice_to_signature(&invalid_bytes);
         assert!(result.is_err());
     }
 }
