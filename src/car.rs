@@ -33,6 +33,15 @@ pub fn write_header<W: io::Write, T: serde::Serialize>(
     Ok(written + header_cbor.len())
 }
 
+/// The CAR header of an SZDT archive.
+/// In addition to `version` and `roots`, this header also includes metadata
+/// related to the SZDT archive.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SzdtCarHeader {
+    version: u64,
+    roots: Vec<DaslCid>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CarBlock {
     pub cid: DaslCid,
