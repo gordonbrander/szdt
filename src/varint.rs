@@ -6,6 +6,15 @@ pub fn read_varint_usize(reader: &mut impl std::io::Read) -> Result<usize, Error
     Ok(size)
 }
 
+/// Write a usize as a leb128 (unsigned-varint) to a writer.
+/// Returns the number of bytes written.
+pub fn write_usize_varint(writer: &mut impl std::io::Write, value: usize) -> Result<usize, Error> {
+    let mut buf = unsigned_varint::encode::usize_buffer();
+    let to_write = unsigned_varint::encode::usize(value, &mut buf);
+    writer.write_all(&to_write)?;
+    Ok(to_write.len())
+}
+
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
@@ -42,6 +51,12 @@ impl From<unsigned_varint::io::ReadError> for Error {
             unsigned_varint::io::ReadError::Decode(err) => Error::UnsignedVarIntDecode(err),
             _ => Error::Other(format!("Unknown error: {}", err)),
         }
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Error::Io(err)
     }
 }
 
@@ -100,5 +115,12 @@ mod tests {
 
         assert_eq!(result, 128);
         assert_eq!(reader.position(), 2); // Should have consumed exactly 2 bytes
+    }
+
+    #[test]
+    fn test_write_usize_varint() {
+        let mut buf: Vec<u8> = Vec::new();
+        write_usize_varint(&mut buf, 128).unwrap();
+        assert_eq!(buf, vec![0x80, 0x01]);
     }
 }
