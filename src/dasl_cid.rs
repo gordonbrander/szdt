@@ -1,6 +1,7 @@
 use crate::varint::{self, read_varint_usize};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::io::Read;
+use sha2::{Digest, Sha256};
+use std::io::{self, Read};
 
 pub const MULTIBASE_BASE32: &str = "b";
 pub const MULTIBASE_BASE2: usize = 0;
@@ -19,6 +20,25 @@ pub struct DaslCid {
 }
 
 impl DaslCid {
+    /// Create a new CID v1 from a codec and a SHA256 digest.
+    pub fn new(codec: Codec, digest: &[u8]) -> Self {
+        let mut digest_array = [0u8; 32];
+        digest_array.copy_from_slice(digest);
+        Self {
+            codec,
+            digest: digest_array,
+        }
+    }
+
+    /// Read and streaming hash the raw bytes of a reader, generating a CID for those bytes
+    pub fn hash<R: Read>(reader: &mut R, codec: Codec) -> Result<Self, Error> {
+        let mut hasher = Sha256::new();
+        // Streaming hash the raw bytes
+        io::copy(reader, &mut hasher)?;
+        let digest = hasher.finalize();
+        Ok(Self::new(codec, &digest.as_slice()))
+    }
+
     /// Read a binary CID v1 from a reader.
     /// Supports CID types specified in <https://dasl.ing/cid.html>.
     pub fn read_cid<R: Read>(reader: &mut R) -> Result<Self, Error> {
@@ -75,6 +95,10 @@ impl DaslCid {
         self.codec
     }
 
+    pub fn multicodec(&self) -> usize {
+        self.codec as usize
+    }
+
     pub fn multihash(&self) -> usize {
         MULTIHASH_SHA256
     }
@@ -98,20 +122,27 @@ impl TryFrom<&str> for DaslCid {
     }
 }
 
-impl TryFrom<&DaslCid> for String {
-    type Error = Error;
-
-    fn try_from(cid: &DaslCid) -> Result<Self, Self::Error> {
+impl From<&DaslCid> for String {
+    fn from(cid: &DaslCid) -> Self {
         // <multibase><version><multicodec><multihash><length><digest>
         let mut buf = Vec::new();
         buf.extend_from_slice(MULTIBASE_BASE32.as_bytes());
-        varint::write_usize_varint(&mut buf, CID_VERSION)?;
-        varint::write_usize_varint(&mut buf, usize::from(cid.codec))?;
-        varint::write_usize_varint(&mut buf, MULTIHASH_SHA256)?;
-        varint::write_usize_varint(&mut buf, SHA256_DIGEST_LENGTH)?;
+        varint::write_usize_varint(&mut buf, CID_VERSION)
+            .expect("should be able to write version to buffer");
+        varint::write_usize_varint(&mut buf, usize::from(cid.codec))
+            .expect("should be able to write codec to buffer");
+        varint::write_usize_varint(&mut buf, MULTIHASH_SHA256)
+            .expect("should be able to write multihash to buffer");
+        varint::write_usize_varint(&mut buf, SHA256_DIGEST_LENGTH)
+            .expect("Should be able to write digest length to buffer");
         buf.extend_from_slice(&cid.digest);
-        let encoded = data_encoding::BASE32_NOPAD_NOCASE.encode(&buf);
-        Ok(encoded)
+        data_encoding::BASE32_NOPAD_NOCASE.encode(&buf)
+    }
+}
+
+impl std::fmt::Display for DaslCid {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", String::from(self))
     }
 }
 
