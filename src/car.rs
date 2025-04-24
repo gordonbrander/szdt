@@ -1,9 +1,60 @@
 use crate::byte_counter_reader::ByteCounterReader;
 use crate::dasl_cid::{self, DaslCid};
-use crate::varint::{self, read_varint_usize};
-use serde::de;
+use crate::varint::{self, read_varint_usize, write_usize_varint};
+use serde::{de, ser};
 use serde_ipld_dagcbor;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
+
+pub struct CarReader<R: Read, H: de::DeserializeOwned> {
+    header: H,
+    reader: R,
+}
+
+impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
+    pub fn new(header: H, reader: R) -> Self {
+        CarReader { header, reader }
+    }
+
+    /// Read bytes into a Car file.
+    pub fn read(mut reader: R) -> Result<Self, Error> {
+        let header: H = read_header(&mut reader)?;
+        return Ok(Self { header, reader });
+    }
+
+    pub fn header(&self) -> &H {
+        &self.header
+    }
+}
+
+impl<R: Read, H: de::DeserializeOwned> Iterator for CarReader<R, H> {
+    type Item = Result<CarBlock, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Try to read the next block
+        match CarBlock::read(&mut self.reader) {
+            Ok(block) => Some(Ok(block)),
+            Err(Error::Io(e)) if e.kind() == io::ErrorKind::UnexpectedEof => None,
+            Err(e) => Some(Err(e)),
+        }
+    }
+}
+
+pub struct CarWriter<W: Write> {
+    writer: W,
+}
+
+impl<W: Write> CarWriter<W> {
+    /// Create a new `CarWriter` instance, writing the header to the writer.
+    pub fn new<H: ser::Serialize>(mut writer: W, header: H) -> Result<Self, Error> {
+        // Immediately write the header to the writer
+        write_header(&mut writer, &header)?;
+        Ok(CarWriter { writer })
+    }
+
+    pub fn write_block(&mut self, block: &CarBlock) -> Result<usize, Error> {
+        block.write(&mut self.writer)
+    }
+}
 
 /// Read the header portion of a CAR file.
 /// This function consumes the header bytes of the CAR file from the reader.
@@ -78,6 +129,18 @@ impl CarBlock {
         // Read data portion
         read_counter.read_exact(&mut data)?;
         Ok(Self { cid, data })
+    }
+
+    /// Write a single body block to a CAR file
+    pub fn write<W: io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+        let cid_bytes: Vec<u8> = Vec::from(&self.cid);
+        let total_len = cid_bytes.len() + self.data.len();
+        // Write the length of the CID and data
+        let written = write_usize_varint(writer, total_len)?;
+        // Write CID
+        writer.write_all(&cid_bytes)?;
+        writer.write_all(&self.data)?;
+        Ok(written + total_len)
     }
 }
 
