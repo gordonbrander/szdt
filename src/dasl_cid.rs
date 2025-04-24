@@ -111,6 +111,7 @@ impl DaslCid {
 impl TryFrom<&str> for DaslCid {
     type Error = Error;
 
+    /// Try to parse str into CID
     fn try_from(cid: &str) -> Result<Self, Self::Error> {
         if !cid.starts_with(MULTIBASE_BASE32) {
             return Err(Error::UnsupportedMultibase(cid[0..1].to_string()));
@@ -123,6 +124,7 @@ impl TryFrom<&str> for DaslCid {
 }
 
 impl From<&DaslCid> for String {
+    /// Convert CID to string
     fn from(cid: &DaslCid) -> Self {
         // <multibase><version><multicodec><multihash><length><digest>
         let mut buf = Vec::new();
@@ -137,6 +139,25 @@ impl From<&DaslCid> for String {
             .expect("Should be able to write digest length to buffer");
         buf.extend_from_slice(&cid.digest);
         data_encoding::BASE32_NOPAD_NOCASE.encode(&buf)
+    }
+}
+
+impl From<&DaslCid> for Vec<u8> {
+    /// Convert CID to byte array
+    fn from(cid: &DaslCid) -> Self {
+        let mut buf = Vec::new();
+        varint::write_usize_varint(&mut buf, MULTIBASE_BASE2)
+            .expect("Should be able to write multibase to buffer");
+        varint::write_usize_varint(&mut buf, CID_VERSION)
+            .expect("should be able to write version to buffer");
+        varint::write_usize_varint(&mut buf, usize::from(cid.codec))
+            .expect("should be able to write multicodec to buffer");
+        varint::write_usize_varint(&mut buf, MULTIHASH_SHA256)
+            .expect("should be able to write multihash to buffer");
+        varint::write_usize_varint(&mut buf, SHA256_DIGEST_LENGTH)
+            .expect("Should be able to write digest length to buffer");
+        buf.extend_from_slice(&cid.digest);
+        buf
     }
 }
 
@@ -399,5 +420,58 @@ mod tests {
         let json_str = json!(cid_str);
         let cid: DaslCid = serde_json::from_value(json_str).unwrap();
         assert_eq!(cid.codec, Codec::Raw);
+    }
+
+    #[test]
+    fn test_cid_serialize_to_bytes() {
+        // Create a CID with known values
+        let digest = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+            0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20,
+        ];
+        let cid = DaslCid::new(Codec::Raw, &digest);
+
+        // Convert to bytes
+        let bytes: Vec<u8> = (&cid).into();
+
+        // Expected byte structure:
+        // <multibase=0><version=1><multicodec=0x55><multihash=0x12><length=0x20><digest>
+        let expected = [
+            0x00, // multibase (binary)
+            0x01, // CID version 1
+            0x55, // multicodec (raw)
+            0x12, // multihash (sha256)
+            0x20, // digest length (32 bytes)
+            // 32 bytes of digest
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+            0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20,
+        ];
+
+        assert_eq!(bytes, expected);
+
+        // Roundtrip test - ensure we can read the bytes back
+        let mut reader = Cursor::new(&bytes);
+        let roundtrip_cid = DaslCid::read_cid(&mut reader).unwrap();
+        assert_eq!(roundtrip_cid, cid);
+    }
+
+    #[test]
+    fn test_cid_serialize_dag_cbor() {
+        // Create a CID with DagCbor codec
+        let digest = [0x42; 32]; // Fill with arbitrary data
+        let cid = DaslCid::new(Codec::DagCbor, &digest);
+
+        // Convert to bytes
+        let bytes: Vec<u8> = (&cid).into();
+
+        // Check multicodec is correct for DagCbor
+        assert_eq!(bytes[2], 0x71); // MULTICODEC_DAG_CBOR = 0x71
+
+        // Read it back and verify codec
+        let mut reader = Cursor::new(&bytes);
+        let roundtrip_cid = DaslCid::read_cid(&mut reader).unwrap();
+        assert_eq!(roundtrip_cid.codec(), Codec::DagCbor);
     }
 }
