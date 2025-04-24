@@ -93,6 +93,7 @@ pub struct SzdtCarHeader {
     roots: Vec<DaslCid>,
 }
 
+/// A single block of data in a CAR file.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CarBlock {
     pub cid: DaslCid,
