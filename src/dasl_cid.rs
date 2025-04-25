@@ -1,7 +1,7 @@
 use crate::varint::{self, read_varint_usize};
 use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 pub const MULTIBASE_BASE32: &str = "b";
 pub const MULTIBASE_BASE2: usize = 0;
@@ -87,6 +87,26 @@ impl DaslCid {
         Ok(DaslCid { codec, digest })
     }
 
+    /// Write binary CID to writer
+    /// Writes the CID in binary CID format, including the base2 multibase prefix.
+    /// Returns the number of bytes written.
+    pub fn write_cid<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
+        let mut written = 0;
+        // Write multibase prefix
+        written += varint::write_usize_varint(writer, MULTIBASE_BASE2)?;
+        // Write CID version
+        written += varint::write_usize_varint(writer, CID_VERSION)?;
+        // Write multicodec
+        written += varint::write_usize_varint(writer, self.codec as usize)?;
+        // Write multihash
+        written += varint::write_usize_varint(writer, MULTIHASH_SHA256)?;
+        // Write digest length
+        written += varint::write_usize_varint(writer, SHA256_DIGEST_LENGTH)?;
+        // Write digest
+        writer.write_all(&self.digest)?;
+        Ok(written + &self.digest.len())
+    }
+
     pub fn version(&self) -> usize {
         CID_VERSION
     }
@@ -146,17 +166,8 @@ impl From<&DaslCid> for Vec<u8> {
     /// Convert CID to byte array
     fn from(cid: &DaslCid) -> Self {
         let mut buf = Vec::new();
-        varint::write_usize_varint(&mut buf, MULTIBASE_BASE2)
-            .expect("Should be able to write multibase to buffer");
-        varint::write_usize_varint(&mut buf, CID_VERSION)
-            .expect("should be able to write version to buffer");
-        varint::write_usize_varint(&mut buf, usize::from(cid.codec))
-            .expect("should be able to write multicodec to buffer");
-        varint::write_usize_varint(&mut buf, MULTIHASH_SHA256)
-            .expect("should be able to write multihash to buffer");
-        varint::write_usize_varint(&mut buf, SHA256_DIGEST_LENGTH)
-            .expect("Should be able to write digest length to buffer");
-        buf.extend_from_slice(&cid.digest);
+        cid.write_cid(&mut buf)
+            .expect("Should be able to write CID to buffer");
         buf
     }
 }
