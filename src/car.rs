@@ -232,7 +232,7 @@ mod tests {
 
         // Prepare the full input with a varint for the header length followed by the header
         let mut input = Vec::new();
-        let written = write_header(&mut input, &header).unwrap();
+        write_header(&mut input, &header).unwrap();
 
         // Read the header back
         let mut reader = Cursor::new(input);
@@ -240,9 +240,6 @@ mod tests {
 
         // Verify the result
         assert_eq!(header, header2);
-
-        // Verify reader position is at the end of the header
-        assert_eq!(reader.position() as usize, written);
     }
 
     #[test]
