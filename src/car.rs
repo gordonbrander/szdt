@@ -1,6 +1,7 @@
 use crate::byte_counter_reader::ByteCounterReader;
-use crate::dasl_cid::{self, DaslCid};
+use crate::multihash::{self, read_into_multihash};
 use crate::varint::{self, read_varint_usize, write_usize_varint};
+use cid::Cid;
 use serde::{de, ser};
 use serde_ipld_dagcbor;
 use std::io::{self, Read, Write};
@@ -90,13 +91,13 @@ pub fn write_header<W: io::Write, T: serde::Serialize>(
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SzdtCarHeader {
     version: u64,
-    roots: Vec<DaslCid>,
+    roots: Vec<Cid>,
 }
 
 /// A single block of data in a CAR file.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CarBlock {
-    pub cid: DaslCid,
+    pub cid: Cid,
     pub data: Vec<u8>,
 }
 
@@ -104,8 +105,10 @@ impl CarBlock {
     /// Construct a new CarBlock
     /// This method cryptographically verifies the contents of the block by
     /// reconstructing the CID from the data and comparing it to the provided CID.
-    pub fn new(cid: DaslCid, data: Vec<u8>) -> Result<Self, Error> {
-        let actual_cid = DaslCid::hash(&mut data.as_slice(), cid.codec())?;
+    pub fn new(cid: Cid, data: Vec<u8>) -> Result<Self, Error> {
+        let mut reader = data.as_slice();
+        let hash = read_into_multihash(&mut reader)?;
+        let actual_cid = Cid::new_v1(cid.codec(), hash);
         if actual_cid != cid {
             return Err(Error::InvalidBlock(format!(
                 "CID doesn't match.\n\tExpected: {}\n\tActual: {}",
@@ -122,7 +125,7 @@ impl CarBlock {
         // Wrap reader in byte counter reader
         let mut read_counter = ByteCounterReader::new(reader);
         // Read the cid
-        let cid = DaslCid::read_cid(&mut read_counter)?;
+        let cid = Cid::read_bytes(&mut read_counter)?;
         // Get the number of bytes read while reading the cid
         let read_size = read_counter.read_size();
         // Allocate memory for the data (the block length minus the CID length)
@@ -134,7 +137,7 @@ impl CarBlock {
 
     /// Write a single body block to a CAR file
     pub fn write<W: io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        let cid_bytes: Vec<u8> = Vec::from(&self.cid);
+        let cid_bytes = &self.cid.to_bytes();
         let total_len = cid_bytes.len() + self.data.len();
         // Write the length of the CID and data
         let written = write_usize_varint(writer, total_len)?;
@@ -149,7 +152,8 @@ impl CarBlock {
 pub enum Error {
     Io(std::io::Error),
     UnsignedVarIntDecode(unsigned_varint::decode::Error),
-    Cid(dasl_cid::Error),
+    Cid(cid::Error),
+    Multihash(multihash::Error),
     Serialization(String),
     InvalidBlock(String),
     Other(String),
@@ -163,6 +167,7 @@ impl std::fmt::Display for Error {
                 write!(f, "UnsignedVarIntDecodeError: {}", err)
             }
             Error::Cid(err) => write!(f, "CID error: {}", err),
+            Error::Multihash(err) => write!(f, "Multihash error: {}", err),
             Error::Serialization(err) => write!(f, "Serialization error: {}", err),
             Error::InvalidBlock(msg) => write!(f, "Invalid block: {}", msg),
             Error::Other(msg) => write!(f, "Other error: {}", msg),
@@ -176,9 +181,8 @@ impl std::error::Error for Error {
             Error::Io(err) => Some(err),
             Error::UnsignedVarIntDecode(err) => Some(err),
             Error::Cid(err) => Some(err),
-            Error::Serialization(_) => None,
-            Error::InvalidBlock(_) => None,
-            Error::Other(_) => None,
+            Error::Multihash(err) => Some(err),
+            _ => None,
         }
     }
 }
@@ -199,12 +203,20 @@ impl From<varint::Error> for Error {
     }
 }
 
-impl From<dasl_cid::Error> for Error {
-    fn from(err: dasl_cid::Error) -> Self {
+impl From<cid::Error> for Error {
+    fn from(err: cid::Error) -> Self {
         match err {
-            dasl_cid::Error::Io(err) => Error::Io(err),
-            dasl_cid::Error::UnsignedVarIntDecode(err) => Error::UnsignedVarIntDecode(err),
-            _ => Error::Cid(err),
+            cid::Error::Io(err) => Self::Io(err),
+            _ => Self::Cid(err),
+        }
+    }
+}
+
+impl From<multihash::Error> for Error {
+    fn from(err: multihash::Error) -> Self {
+        match err {
+            multihash::Error::Io(err) => Self::Io(err),
+            _ => Self::Multihash(err),
         }
     }
 }
@@ -218,7 +230,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     struct TestHeader {
         version: u64,
-        roots: Vec<DaslCid>,
+        roots: Vec<Cid>,
     }
 
     #[test]

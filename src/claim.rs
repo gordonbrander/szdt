@@ -1,4 +1,5 @@
-use crate::{dasl_cid::DaslCid, did::DidKey};
+use crate::did::DidKey;
+use cid::Cid;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -30,25 +31,25 @@ pub enum Assertion {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuthorityAssertion {
-    pub ent: DaslCid,
+    pub ent: Cid,
     pub val: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DnAssertion {
-    pub ent: DaslCid,
+    pub ent: Cid,
     pub val: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CommentAssertion {
-    pub ent: DaslCid,
+    pub ent: Cid,
     pub val: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PetnameAssertion {
-    pub ent: DaslCid,
+    pub ent: Cid,
     pub val: String,
 }
 
@@ -59,8 +60,8 @@ mod tests {
 
     #[test]
     fn test_authority_assertion_serializes_to_dag_json() {
-        let cid = DaslCid::try_from("bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e")
-            .unwrap();
+        let cid =
+            Cid::try_from("bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e").unwrap();
         let timestamp = 1234567890;
 
         let assertion = Assertion::Authority(AuthorityAssertion {
