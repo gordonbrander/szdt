@@ -1,8 +1,8 @@
+use crate::multiformats::MULTIHASH_SHA256;
 use multihash::Multihash;
 use sha2::{Digest, Sha256};
 use std::io::{self, Read};
 
-pub const MULTIHASH_SHA256: u64 = 0x12;
 pub type Sha256Digest = [u8; 32];
 pub type Multihash64 = Multihash<64>;
 

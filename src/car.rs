@@ -1,8 +1,9 @@
 use crate::byte_counter_reader::ByteCounterReader;
+use crate::multiformats::{MULTICODEC_DCBOR, MULTICODEC_RAW};
 use crate::multihash::{self, read_into_multihash};
 use crate::varint::{self, read_varint_usize, write_usize_varint};
 use cid::Cid;
-use serde::{de, ser};
+use serde::{Deserialize, Serialize, de, ser};
 use serde_ipld_dagcbor;
 use std::io::{self, Read, Write};
 
@@ -32,7 +33,7 @@ impl<R: Read, H: de::DeserializeOwned> Iterator for CarReader<R, H> {
 
     fn next(&mut self) -> Option<Self::Item> {
         // Try to read the next block
-        match CarBlock::read(&mut self.reader) {
+        match CarBlock::read_from(&mut self.reader) {
             Ok(block) => Some(Ok(block)),
             Err(Error::Io(e)) if e.kind() == io::ErrorKind::UnexpectedEof => None,
             Err(e) => Some(Err(e)),
@@ -52,15 +53,19 @@ impl<W: Write> CarWriter<W> {
         Ok(CarWriter { writer })
     }
 
+    pub fn inner(&mut self) -> &mut W {
+        &mut self.writer
+    }
+
     pub fn write_block(&mut self, block: &CarBlock) -> Result<usize, Error> {
-        block.write(&mut self.writer)
+        block.write_into(&mut self.writer)
     }
 }
 
 /// Read the header portion of a CAR file.
 /// This function consumes the header bytes of the CAR file from the reader.
 /// Reader may be subsequently passed to functions which read the body blocks of the CAR file.
-pub fn read_header<R: io::Read, T: de::DeserializeOwned>(reader: &mut R) -> Result<T, Error> {
+fn read_header<R: io::Read, T: de::DeserializeOwned>(reader: &mut R) -> Result<T, Error> {
     let header_length = read_varint_usize(reader)?;
     // Create a `header_length` buffer and read bytes from the header block
     let mut header_buffer = vec![0; header_length];
@@ -74,7 +79,7 @@ pub fn read_header<R: io::Read, T: de::DeserializeOwned>(reader: &mut R) -> Resu
 /// This function writes the header bytes of the CAR file to the writer.
 /// Writer may be subsequently passed to functions which write the body blocks of the CAR file.
 /// Returns the number of bytes written, including the varint length.
-pub fn write_header<W: io::Write, T: serde::Serialize>(
+fn write_header<W: io::Write, T: serde::Serialize>(
     writer: &mut W,
     header: &T,
 ) -> Result<usize, Error> {
@@ -88,14 +93,14 @@ pub fn write_header<W: io::Write, T: serde::Serialize>(
 /// The CAR header of an SZDT archive.
 /// In addition to `version` and `roots`, this header also includes metadata
 /// related to the SZDT archive.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SzdtCarHeader {
     version: u64,
     roots: Vec<Cid>,
 }
 
 /// A single block of data in a CAR file.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,
@@ -118,8 +123,24 @@ impl CarBlock {
         Ok(CarBlock { cid, data })
     }
 
+    /// Constructs a new CarBlock from raw data
+    pub fn from_raw(data: Vec<u8>) -> Result<Self, Error> {
+        let hash = read_into_multihash(&mut data.as_slice())?;
+        let cid = Cid::new_v1(MULTICODEC_RAW, hash);
+        Ok(CarBlock { cid, data })
+    }
+
+    /// Serializes value as dcbor42, and creates a new CarBlock with dcbor42 CID
+    pub fn from_serializable<T: serde::Serialize>(value: &T) -> Result<Self, Error> {
+        let data =
+            serde_ipld_dagcbor::to_vec(value).map_err(|e| Error::Serialization(e.to_string()))?;
+        let hash = read_into_multihash(&mut data.as_slice())?;
+        let cid = Cid::new_v1(MULTICODEC_DCBOR, hash);
+        Ok(CarBlock { cid, data })
+    }
+
     /// Read a single body block from a CAR file
-    pub fn read<R: io::Read>(reader: &mut R) -> Result<Self, Error> {
+    pub fn read_from<R: io::Read>(reader: &mut R) -> Result<Self, Error> {
         // Read size
         let block_size = read_varint_usize(reader)?;
         // Wrap reader in byte counter reader
@@ -132,11 +153,11 @@ impl CarBlock {
         let mut data = vec![0; block_size - read_size];
         // Read data portion
         read_counter.read_exact(&mut data)?;
-        Ok(Self { cid, data })
+        Ok(Self::new(cid, data)?)
     }
 
-    /// Write a single body block to a CAR file
-    pub fn write<W: io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    /// Write a single body block to a writer
+    pub fn write_into<W: io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let cid_bytes = &self.cid.to_bytes();
         let total_len = cid_bytes.len() + self.data.len();
         // Write the length of the CID and data

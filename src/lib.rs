@@ -5,6 +5,7 @@ pub mod claim;
 pub mod did;
 pub mod ed25519;
 pub mod error;
+pub mod multiformats;
 pub mod multihash;
 pub mod util;
 pub mod varint;
