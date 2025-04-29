@@ -226,13 +226,6 @@ impl From<multihash::Error> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-    struct TestHeader {
-        version: u64,
-        roots: Vec<Cid>,
-    }
 
     #[test]
     fn test_car_roundtrip() {
