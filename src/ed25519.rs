@@ -4,6 +4,7 @@ use ed25519_dalek::{
     VerifyingKey,
 };
 use rand::rngs::OsRng;
+use thiserror::Error;
 
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 pub type SignatureBytes = [u8; 64];
@@ -93,35 +94,18 @@ pub fn verify(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("Signature verification error: {0}")]
     SignatureVerificationError(String),
-    Ed25519Error(ed25519_dalek::ed25519::Error),
+    #[error("Ed25519 error: {0}")]
+    Ed25519Error(#[from] ed25519_dalek::ed25519::Error),
+    #[error("Invalid public key: {0}")]
     InvalidPublicKey(String),
+    #[error("Invalid secret key: {0}")]
     InvalidSecretKey(String),
+    #[error("Invalid signature: {0}")]
     InvalidSignature(String),
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Error::SignatureVerificationError(msg) => {
-                write!(f, "Signature verification error: {}", msg)
-            }
-            Error::Ed25519Error(err) => write!(f, "Ed25519 error: {}", err),
-            Error::InvalidPublicKey(msg) => write!(f, "Invalid public key: {}", msg),
-            Error::InvalidSecretKey(msg) => write!(f, "Invalid secret key: {}", msg),
-            Error::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl From<ed25519_dalek::ed25519::Error> for Error {
-    fn from(err: ed25519_dalek::ed25519::Error) -> Self {
-        Error::Ed25519Error(err)
-    }
 }
 
 #[cfg(test)]

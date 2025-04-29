@@ -2,6 +2,7 @@ use crate::multiformats::MULTIHASH_SHA256;
 use multihash::Multihash;
 use sha2::{Digest, Sha256};
 use std::io::{self, Read};
+use thiserror::Error;
 
 pub type Sha256Digest = [u8; 32];
 pub type Multihash64 = Multihash<64>;
@@ -33,35 +34,14 @@ pub fn into_multihash(hash: &[u8]) -> Result<Multihash64, Error> {
     Ok(multihash)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    Io(io::Error),
-    Multihash(multihash::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] io::Error),
+    #[error("Multihash error: {0}")]
+    Multihash(#[from] multihash::Error),
+    #[error("Value error: {0}")]
     ValueError(String),
-}
-
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Io(err) => write!(f, "I/O error: {}", err),
-            Error::Multihash(err) => write!(f, "Multihash error: {}", err),
-            Error::ValueError(msg) => write!(f, "Value error: {}", msg),
-        }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
-        Error::Io(err)
-    }
-}
-
-impl From<multihash::Error> for Error {
-    fn from(err: multihash::Error) -> Self {
-        Error::Multihash(err)
-    }
 }
 
 #[cfg(test)]

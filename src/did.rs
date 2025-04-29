@@ -1,6 +1,7 @@
 use crate::base58btc;
 use crate::ed25519;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// The multicodec prefix for ed25519 public key is 0xed.
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -79,36 +80,16 @@ impl<'de> Deserialize<'de> for DidKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    Key(ed25519::Error),
+    #[error("Public key error: {0}")]
+    Key(#[from] ed25519::Error),
+    #[error("Base encoding/decoding error: {0}")]
     Base(String),
+    #[error("Unsupported base encoding. Only Base58BTC is supported.")]
     UnsupportedBase,
+    #[error("Unsupported codec. Only Ed25519 public keys are supported.")]
     UnsupportedCodec,
-}
-
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Key(msg) => write!(f, "Public key error: {}", msg),
-            Error::Base(msg) => write!(f, "Base encoding/decoding error: {}", msg),
-            Error::UnsupportedBase => {
-                write!(f, "Unsupported base encoding. Only Base58BTC is supported.")
-            }
-            Error::UnsupportedCodec => write!(
-                f,
-                "Unsupported codec. Only Ed25519 public keys are supported."
-            ),
-        }
-    }
-}
-
-impl From<ed25519::Error> for Error {
-    fn from(err: ed25519::Error) -> Self {
-        Error::Key(err)
-    }
 }
 
 impl From<bs58::decode::Error> for Error {

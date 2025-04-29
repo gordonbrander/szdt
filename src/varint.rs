@@ -1,4 +1,5 @@
 use std::io;
+use thiserror::Error;
 
 /// Read a leb128 (unsigned-varint) as a usize from a reader.
 pub fn read_varint_usize(reader: &mut impl std::io::Read) -> Result<usize, Error> {
@@ -15,33 +16,14 @@ pub fn write_usize_varint(writer: &mut impl std::io::Write, value: usize) -> Res
     Ok(to_write.len())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    Io(io::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] io::Error),
+    #[error("Error decoding unsigned varint: {0}")]
     UnsignedVarIntDecode(unsigned_varint::decode::Error),
+    #[error("Error: {0}")]
     Other(String),
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Io(err) => write!(f, "I/O error: {}", err),
-            Error::UnsignedVarIntDecode(err) => {
-                write!(f, "Error decoding unsigned varint: {}", err)
-            }
-            Error::Other(msg) => write!(f, "Error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::Io(err) => Some(err),
-            Error::UnsignedVarIntDecode(err) => Some(err),
-            Error::Other(_) => None,
-        }
-    }
 }
 
 impl From<unsigned_varint::io::ReadError> for Error {
@@ -51,12 +33,6 @@ impl From<unsigned_varint::io::ReadError> for Error {
             unsigned_varint::io::ReadError::Decode(err) => Error::UnsignedVarIntDecode(err),
             _ => Error::Other(format!("Unknown error: {}", err)),
         }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
-        Error::Io(err)
     }
 }
 
