@@ -48,9 +48,8 @@ fn archive(dir: PathBuf, _private_key: String) {
     let file_name = "archive.car";
     println!("Writing archive: {}", file_name);
     let car_file = fs::File::create(file_name).expect("Failed to create archive file");
-    let meta: HashMap<String, String> = HashMap::new();
-    let header = CarHeader::new_v1(Vec::new(), meta);
-    let mut car = CarWriter::new(car_file, header).expect("Should be able to create CAR");
+    let header = CarHeader::new_v1();
+    let mut car = CarWriter::new(car_file, &header).expect("Should be able to create CAR");
     for path in walk_files(&dir).expect("Directory should be readable") {
         let body = fs::read(&path).expect("Path should be readable");
         let block = CarBlock::from_raw(body);

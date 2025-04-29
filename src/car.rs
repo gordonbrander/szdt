@@ -22,7 +22,14 @@ impl<R: Read, H> CarReader<R, H> {
 impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
     /// Read bytes into a Car file.
     pub fn read_from(mut reader: R) -> Result<Self, Error> {
-        let header: H = read_header(&mut reader)?;
+        // Get header length
+        let header_length = read_varint_usize(&mut reader)?;
+        // Create a `header_length` buffer and read bytes from the header block
+        let mut header_buffer = vec![0; header_length];
+        reader.read_exact(&mut header_buffer)?;
+        // Deserialize header
+        let header: H = serde_ipld_dagcbor::from_slice(&header_buffer)
+            .map_err(|e| Error::Serialization(e.to_string()))?;
         return Ok(Self { header, reader });
     }
 }
@@ -45,10 +52,15 @@ pub struct CarWriter<W: Write> {
 }
 
 impl<W: Write> CarWriter<W> {
-    /// Create a new `CarWriter` instance, writing the header to the writer.
-    pub fn new<H: ser::Serialize>(mut writer: W, header: H) -> Result<Self, Error> {
-        // Immediately write the header to the writer
-        write_header(&mut writer, &header)?;
+    /// Create a new `CarWriter` instance, writing the CAR header to the writer.
+    pub fn new<H: ser::Serialize>(mut writer: W, header: &H) -> Result<Self, Error> {
+        // Serialize header to dag-cbor
+        let header_cbor =
+            serde_ipld_dagcbor::to_vec(header).map_err(|e| Error::Serialization(e.to_string()))?;
+        // Write length
+        varint::write_usize_varint(&mut writer, header_cbor.len())?;
+        // Write header
+        writer.write_all(&header_cbor)?;
         Ok(CarWriter { writer })
     }
 
@@ -61,49 +73,19 @@ impl<W: Write> CarWriter<W> {
     }
 }
 
-/// Read the header portion of a CAR file.
-/// This function consumes the header bytes of the CAR file from the reader.
-/// Reader may be subsequently passed to functions which read the body blocks of the CAR file.
-fn read_header<R: io::Read, T: DeserializeOwned>(reader: &mut R) -> Result<T, Error> {
-    let header_length = read_varint_usize(reader)?;
-    // Create a `header_length` buffer and read bytes from the header block
-    let mut header_buffer = vec![0; header_length];
-    reader.read_exact(&mut header_buffer)?;
-    let header: T = serde_ipld_dagcbor::from_slice(&header_buffer)
-        .map_err(|e| Error::Serialization(e.to_string()))?;
-    Ok(header)
-}
-
-/// Write the header portion of a CAR file.
-/// This function writes the header bytes of the CAR file to the writer.
-/// Writer may be subsequently passed to functions which write the body blocks of the CAR file.
-/// Returns the number of bytes written, including the varint length.
-fn write_header<W: io::Write, T: Serialize>(writer: &mut W, header: &T) -> Result<usize, Error> {
-    let header_cbor =
-        serde_ipld_dagcbor::to_vec(header).map_err(|e| Error::Serialization(e.to_string()))?;
-    let written = varint::write_usize_varint(writer, header_cbor.len())?;
-    writer.write_all(&header_cbor)?;
-    Ok(written + header_cbor.len())
-}
-
 /// The CAR header of an SZDT archive.
-/// In addition to `version` and `roots`, this header also includes metadata
-/// related to the SZDT archive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CarHeader<T> {
+pub struct CarHeader {
     version: u64,
     pub roots: Vec<Cid>,
-    #[serde(flatten)]
-    pub meta: T,
 }
 
-impl<T> CarHeader<T> {
+impl CarHeader {
     /// Construct a new CarHeader
-    pub fn new_v1(roots: Vec<Cid>, meta: T) -> Self {
+    pub fn new_v1() -> Self {
         CarHeader {
             version: 1,
-            roots,
-            meta,
+            roots: Vec::new(),
         }
     }
 }
@@ -118,7 +100,7 @@ pub struct CarBlock {
 impl CarBlock {
     /// Construct a new CarBlock
     /// This method cryptographically verifies the contents of the block by
-    /// reconstructing the CID from the data and comparing it to the provided CID.
+    /// reconstructing the CID from the body and comparing it to the provided CID.
     pub fn new(cid: Cid, body: Vec<u8>) -> Result<Self, Error> {
         let mut reader = body.as_slice();
         let hash = read_into_multihash(&mut reader)?;
@@ -156,11 +138,11 @@ impl CarBlock {
         let cid = Cid::read_bytes(&mut read_counter)?;
         // Get the number of bytes read while reading the cid
         let read_size = read_counter.read_size();
-        // Allocate memory for the data (the block length minus the CID length)
-        let mut data = vec![0; block_size - read_size];
+        // Allocate memory for the body (the block length minus the CID length)
+        let mut body = vec![0; block_size - read_size];
         // Read data portion
-        read_counter.read_exact(&mut data)?;
-        Ok(Self::new(cid, data)?)
+        read_counter.read_exact(&mut body)?;
+        Ok(Self::new(cid, body)?)
     }
 
     /// Write a single body block to a writer
@@ -180,7 +162,7 @@ impl CarBlock {
         &self.cid
     }
 
-    /// Get the data of the block
+    /// Get the body (data) of the block
     pub fn body(&self) -> &Vec<u8> {
         &self.body
     }
@@ -245,7 +227,6 @@ impl From<multihash::Error> for Error {
 mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
-    use std::io::Cursor;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     struct TestHeader {
@@ -254,31 +235,33 @@ mod tests {
     }
 
     #[test]
-    fn test_write_header_read_header_roundtrip() {
+    fn test_car_roundtrip() {
         // Create a test header in CBOR format
         // For simplicity, we're creating a CAR v1 header with an empty roots array
-        let header = TestHeader {
-            version: 1,
-            roots: vec![],
-        };
+        let header = CarHeader::new_v1();
 
-        // Prepare the full input with a varint for the header length followed by the header
-        let mut input = Vec::new();
-        write_header(&mut input, &header).unwrap();
+        // Create buffer as virtual "file"
+        let mut car_buffer = Vec::new();
+
+        // Create writer and write header
+        let mut car_writer = CarWriter::new(&mut car_buffer, &header).unwrap();
+
+        // Write block
+        let block_body = "Hello world";
+        let car_block = CarBlock::from_raw(block_body.as_bytes().to_vec());
+        car_writer.write_block(&car_block).unwrap();
 
         // Read the header back
-        let mut reader = Cursor::new(input);
-        let header2: TestHeader = read_header(&mut reader).unwrap();
+        let car_reader: CarReader<_, CarHeader> =
+            CarReader::read_from(car_buffer.as_slice()).unwrap();
 
         // Verify the result
-        assert_eq!(header, header2);
-    }
+        assert_eq!(&header, car_reader.header());
 
-    #[test]
-    fn test_read_header_reading_empty_buffer_is_error() {
-        // Create an empty reader to simulate IO error
-        let mut reader = Cursor::new(Vec::<u8>::new());
-        let result: Result<TestHeader, Error> = read_header(&mut reader);
-        assert!(result.is_err());
+        let blocks: Result<Vec<CarBlock>, Error> = car_reader.collect();
+        let blocks = blocks.unwrap();
+        assert_eq!(blocks.len(), 1);
+        let block = blocks.first().unwrap();
+        assert_eq!(block.body(), block_body.as_bytes());
     }
 }
