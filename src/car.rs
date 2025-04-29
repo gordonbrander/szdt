@@ -8,24 +8,22 @@ use serde_ipld_dagcbor;
 use std::io::{self, Read, Write};
 use thiserror::Error;
 
-pub struct CarReader<R: Read, H: de::DeserializeOwned> {
+pub struct CarReader<R: Read, H> {
     header: H,
     reader: R,
 }
 
-impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
-    pub fn new(header: H, reader: R) -> Self {
-        CarReader { header, reader }
-    }
-
-    /// Read bytes into a Car file.
-    pub fn read(mut reader: R) -> Result<Self, Error> {
-        let header: H = read_header(&mut reader)?;
-        return Ok(Self { header, reader });
-    }
-
+impl<R: Read, H> CarReader<R, H> {
     pub fn header(&self) -> &H {
         &self.header
+    }
+}
+
+impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
+    /// Read bytes into a Car file.
+    pub fn read_from(mut reader: R) -> Result<Self, Error> {
+        let header: H = read_header(&mut reader)?;
+        return Ok(Self { header, reader });
     }
 }
 

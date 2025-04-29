@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use szdt::base58btc;
-use szdt::car::{CarBlock, CarHeader, CarWriter};
+use szdt::car::{CarBlock, CarHeader, CarReader, CarWriter};
 use szdt::ed25519::generate_private_key;
 use szdt::file::walk_files;
 
@@ -45,24 +45,43 @@ enum Commands {
 }
 
 fn archive(dir: PathBuf, _private_key: String) {
-    let filename = "archive.car";
-    println!("Writing archive: {}", filename);
-    let car_file = fs::File::create(filename).expect("Failed to create archive file");
+    let file_name = "archive.car";
+    println!("Writing archive: {}", file_name);
+    let car_file = fs::File::create(file_name).expect("Failed to create archive file");
     let meta: HashMap<String, String> = HashMap::new();
     let header = CarHeader::new_v1(Vec::new(), meta);
     let mut car = CarWriter::new(car_file, header).expect("Should be able to create CAR");
     for path in walk_files(&dir).expect("Directory should be readable") {
-        let data = fs::read(&path).expect("Path should be readable");
-        let block = CarBlock::from_raw(data);
+        let body = fs::read(&path).expect("Path should be readable");
+        let block = CarBlock::from_raw(body);
         car.write_block(&block)
             .expect("Should be able to write block");
         println!("{} -> {}", &path.display(), block.cid());
     }
-    println!("Archive created: {}", filename);
+    println!("Archive created: {}", file_name);
 }
 
-fn unarchive(_file_path: PathBuf) {
-    println!("TODO");
+fn unarchive(file_path: PathBuf) {
+    let file = fs::File::open(&file_path).expect("Should be able to open file");
+    let reader: CarReader<fs::File, HashMap<String, String>> =
+        CarReader::read_from(file).expect("Should be able to read CAR file");
+
+    // Create a folder named after the file path
+    let archive_dir: PathBuf = file_path
+        .file_stem()
+        .map(|p| p.into())
+        .unwrap_or("archive".into());
+
+    fs::create_dir_all(&archive_dir).expect("Should be able to create directory");
+
+    for block in reader {
+        let block = block.expect("Should be able to read block");
+        let path = archive_dir.join(block.cid().to_string());
+        let body = block.body();
+        fs::write(&path, body).expect("Should be able to write file");
+        println!("{} -> {}", block.cid(), &path.display());
+    }
+    println!("Unpacked archive");
 }
 
 fn genkey() {
