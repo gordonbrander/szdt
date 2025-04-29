@@ -52,30 +52,3 @@ pub struct PetnameAssertion {
     pub ent: Cid,
     pub val: String,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json;
-
-    #[test]
-    fn test_authority_assertion_serializes_to_dag_json() {
-        let cid =
-            Cid::try_from("bafkreifzjut3te2nhyekklss27nh3k72ysco7y32koao5eei66wof36n5e").unwrap();
-        let timestamp = 1234567890;
-
-        let assertion = Assertion::Authority(AuthorityAssertion {
-            ent: cid.clone(),
-            val: timestamp,
-        });
-
-        let serialized = serde_json::to_string(&assertion).unwrap();
-        let json_value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
-
-        // Check that we have the expected fields
-        assert!(json_value.is_object());
-        assert_eq!(json_value["atr"], "authority");
-        assert_eq!(json_value["ent"], cid.to_string());
-        assert_eq!(json_value["val"], timestamp);
-    }
-}

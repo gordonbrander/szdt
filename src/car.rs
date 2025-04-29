@@ -1,11 +1,12 @@
 use crate::byte_counter_reader::ByteCounterReader;
-use crate::multiformats::{MULTICODEC_DCBOR, MULTICODEC_RAW};
+use crate::cid::{read_into_cid_v1_cbor, read_into_cid_v1_raw};
 use crate::multihash::{self, read_into_multihash};
 use crate::varint::{self, read_varint_usize, write_usize_varint};
 use cid::Cid;
-use serde::{Deserialize, Serialize, de, ser};
+use serde::{Deserialize, Serialize, de, de::DeserializeOwned, ser};
 use serde_ipld_dagcbor;
 use std::io::{self, Read, Write};
+use thiserror::Error;
 
 pub struct CarReader<R: Read, H: de::DeserializeOwned> {
     header: H,
@@ -28,7 +29,7 @@ impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
     }
 }
 
-impl<R: Read, H: de::DeserializeOwned> Iterator for CarReader<R, H> {
+impl<R: Read, H: DeserializeOwned> Iterator for CarReader<R, H> {
     type Item = Result<CarBlock, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -65,7 +66,7 @@ impl<W: Write> CarWriter<W> {
 /// Read the header portion of a CAR file.
 /// This function consumes the header bytes of the CAR file from the reader.
 /// Reader may be subsequently passed to functions which read the body blocks of the CAR file.
-fn read_header<R: io::Read, T: de::DeserializeOwned>(reader: &mut R) -> Result<T, Error> {
+fn read_header<R: io::Read, T: DeserializeOwned>(reader: &mut R) -> Result<T, Error> {
     let header_length = read_varint_usize(reader)?;
     // Create a `header_length` buffer and read bytes from the header block
     let mut header_buffer = vec![0; header_length];
@@ -79,10 +80,7 @@ fn read_header<R: io::Read, T: de::DeserializeOwned>(reader: &mut R) -> Result<T
 /// This function writes the header bytes of the CAR file to the writer.
 /// Writer may be subsequently passed to functions which write the body blocks of the CAR file.
 /// Returns the number of bytes written, including the varint length.
-fn write_header<W: io::Write, T: serde::Serialize>(
-    writer: &mut W,
-    header: &T,
-) -> Result<usize, Error> {
+fn write_header<W: io::Write, T: Serialize>(writer: &mut W, header: &T) -> Result<usize, Error> {
     let header_cbor =
         serde_ipld_dagcbor::to_vec(header).map_err(|e| Error::Serialization(e.to_string()))?;
     let written = varint::write_usize_varint(writer, header_cbor.len())?;
@@ -94,24 +92,37 @@ fn write_header<W: io::Write, T: serde::Serialize>(
 /// In addition to `version` and `roots`, this header also includes metadata
 /// related to the SZDT archive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SzdtCarHeader {
+pub struct CarHeader<T> {
     version: u64,
-    roots: Vec<Cid>,
+    pub roots: Vec<Cid>,
+    #[serde(flatten)]
+    pub meta: T,
+}
+
+impl<T> CarHeader<T> {
+    /// Construct a new CarHeader
+    pub fn new_v1(roots: Vec<Cid>, meta: T) -> Self {
+        CarHeader {
+            version: 1,
+            roots,
+            meta,
+        }
+    }
 }
 
 /// A single block of data in a CAR file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CarBlock {
-    pub cid: Cid,
-    pub data: Vec<u8>,
+    cid: Cid,
+    body: Vec<u8>,
 }
 
 impl CarBlock {
     /// Construct a new CarBlock
     /// This method cryptographically verifies the contents of the block by
     /// reconstructing the CID from the data and comparing it to the provided CID.
-    pub fn new(cid: Cid, data: Vec<u8>) -> Result<Self, Error> {
-        let mut reader = data.as_slice();
+    pub fn new(cid: Cid, body: Vec<u8>) -> Result<Self, Error> {
+        let mut reader = body.as_slice();
         let hash = read_into_multihash(&mut reader)?;
         let actual_cid = Cid::new_v1(cid.codec(), hash);
         if actual_cid != cid {
@@ -120,23 +131,21 @@ impl CarBlock {
                 cid, actual_cid
             )));
         }
-        Ok(CarBlock { cid, data })
+        Ok(CarBlock { cid, body })
     }
 
     /// Constructs a new CarBlock from raw data
-    pub fn from_raw(data: Vec<u8>) -> Result<Self, Error> {
-        let hash = read_into_multihash(&mut data.as_slice())?;
-        let cid = Cid::new_v1(MULTICODEC_RAW, hash);
-        Ok(CarBlock { cid, data })
+    pub fn from_raw(body: Vec<u8>) -> Self {
+        let cid = read_into_cid_v1_raw(&mut body.as_slice()).expect("Should be able to read vec");
+        CarBlock { cid, body }
     }
 
     /// Serializes value as dcbor42, and creates a new CarBlock with dcbor42 CID
-    pub fn from_serializable<T: serde::Serialize>(value: &T) -> Result<Self, Error> {
-        let data =
+    pub fn from_serializable<T: Serialize>(value: &T) -> Result<Self, Error> {
+        let body =
             serde_ipld_dagcbor::to_vec(value).map_err(|e| Error::Serialization(e.to_string()))?;
-        let hash = read_into_multihash(&mut data.as_slice())?;
-        let cid = Cid::new_v1(MULTICODEC_DCBOR, hash);
-        Ok(CarBlock { cid, data })
+        let cid = read_into_cid_v1_cbor(&mut body.as_slice())?;
+        Ok(CarBlock { cid, body })
     }
 
     /// Read a single body block from a CAR file
@@ -159,58 +168,50 @@ impl CarBlock {
     /// Write a single body block to a writer
     pub fn write_into<W: io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let cid_bytes = &self.cid.to_bytes();
-        let total_len = cid_bytes.len() + self.data.len();
+        let total_len = cid_bytes.len() + self.body.len();
         // Write the length of the CID and data
         let written = write_usize_varint(writer, total_len)?;
         // Write CID
         writer.write_all(&cid_bytes)?;
-        writer.write_all(&self.data)?;
+        writer.write_all(&self.body)?;
         Ok(written + total_len)
+    }
+
+    /// Get the CID of the block
+    pub fn cid(&self) -> &Cid {
+        &self.cid
+    }
+
+    /// Get the data of the block
+    pub fn body(&self) -> &Vec<u8> {
+        &self.body
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    Io(std::io::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Error decoding unsigned-varint: {0}")]
     UnsignedVarIntDecode(unsigned_varint::decode::Error),
+    #[error("CID error: {0}")]
     Cid(cid::Error),
+    #[error("Multihash error: {0}")]
     Multihash(multihash::Error),
+    #[error("Serialization error: {0}")]
     Serialization(String),
+    #[error("Invalid block: {0}")]
     InvalidBlock(String),
+    #[error("Other error: {0}")]
     Other(String),
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Io(err) => write!(f, "IO error: {}", err),
-            Error::UnsignedVarIntDecode(err) => {
-                write!(f, "UnsignedVarIntDecodeError: {}", err)
-            }
-            Error::Cid(err) => write!(f, "CID error: {}", err),
-            Error::Multihash(err) => write!(f, "Multihash error: {}", err),
-            Error::Serialization(err) => write!(f, "Serialization error: {}", err),
-            Error::InvalidBlock(msg) => write!(f, "Invalid block: {}", msg),
-            Error::Other(msg) => write!(f, "Other error: {}", msg),
+impl From<crate::cid::Error> for Error {
+    fn from(err: crate::cid::Error) -> Self {
+        match err {
+            crate::cid::Error::Io(err) => Self::Io(err),
+            crate::cid::Error::Multihash(err) => Self::Multihash(err),
         }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::Io(err) => Some(err),
-            Error::UnsignedVarIntDecode(err) => Some(err),
-            Error::Cid(err) => Some(err),
-            Error::Multihash(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Error::Io(err)
     }
 }
 
