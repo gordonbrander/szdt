@@ -124,7 +124,7 @@ type Link = {
 }
 ```
 
-### CAR block ordering
+## CAR block ordering
 
 SZDT writers SHOULD write blocks in depth-first, first seen order, when traversing from `roots`. This ensures efficient streaming when reading.
 
@@ -149,9 +149,7 @@ Practically speaking, assuming the archive manifest is the only root, this shoul
 
 > **Signing input**: the canonical JSON payload bytes (UTF‑8, no whitespace) are signed. Verifiers MUST canonicalise before hashing.
 
----
-
-## 5  Verification procedure
+## Verification procedure
 
 1. **Per‑block integrity**
    *Read block → hash → compare to CID multihash.*
@@ -169,7 +167,7 @@ If all steps succeed, both every blob and the top‑level collection are authent
 
 ---
 
-## 6  Example (illustrative)
+## Example (illustrative)
 
 ```jsonc
 // Header (object before CBOR encoding)
@@ -184,9 +182,9 @@ If all steps succeed, both every blob and the top‑level collection are authent
 }
 ```
 
-##  Extensibility & interop notes
+## Extensibility & interop notes
 
-* **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.citeturn0search0
+* **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.
 * **Multiple manifests**: To avoid gigantic root arrays, store one DAG‑CBOR manifest node listing all blob CIDs and use *that* CID as the single root.
 * **CAR v2 compatibility**: The same header object can be embedded verbatim inside a CAR v2 payload file.
 
