@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a
 
-A container format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
+Signed .car files for censorship-resistant publishing and archiving. Pronounced "Samizdat".
 
 ## Motivation
 
@@ -22,12 +22,12 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## The idea
 
-**TLDR**: a cryptographically-signed CBOR object containing:
+**TLDR**: a cryptographically-signed .car file containing:
 
 - **Files** stored as raw bytes
-- **Links** to additional external files, with redundant URLs and/or magnet links for retrieval, plus checksums for veryifying file integrity.
+- **Links** to additional external files, with content addresses for verifying integrity and multiple redundant URLs for retrieval
 - **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic signature** proving the authenticity of the archive
+- **Cryptographic claims** proving the authenticity of the archive
 
 ## Goals
 
@@ -43,52 +43,66 @@ If there are many copies, and many ways to find them, then data can survive the 
 ### Non-goals
 
 - **P2P**: SZDT is transport-agnostic. It's just a file format. You should be able to publish, share, and retreive SZDT archives from anywhere, including HTTP, BitTorrent, email, messaging apps, sneakernet, etc.
-- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry too much about efficient streaming or chunking. When efficient downloading is needed, we leverage established protocols like BitTorrent.
+- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry about efficient chunking, or deduping. When efficient downloading is needed, we leverage established protocols like BitTorrent.
 - **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
 
 ## Speculative specification
 
-Below is a concise, implementation‑oriented specification you can drop into an engineering‑spec repo.  It confines itself to CAR v1 semantics, CID v1 with **sha2‑256 / raw (0x55)**, and embeds cryptographic attestations as compact‑serialized JWTs directly in the CAR header.
-
----
-
-## 1  High‑level goals
+## High‑level goals
 
 | Requirement | Design choice |
 |-------------|---------------|
 | _Self‑verifying per‑object_ | Every blob is stored as a **raw IPLD block** whose CID’s multihash is the SHA‑256 of the exact bytes in the block. |
-| _Self‑verifying per‑archive_ | The archive header contains one or more **JWT proofs** whose payload commits to the set of CIDs in the archive and is signed by a public key that can be resolved independently (e.g. JWK URL, DID). |
-| _Streaming friendliness_ | Sticks to CAR v1’s _length‑prefixed block stream_ so writers can pipe without seeking. |
-| _Forward compatibility_ | Extra header field `proofs` is added; CAR v1 readers that only honour `roots`+`version` will simply ignore it. |
+| _Self‑verifying per‑archive_ | The archive header contains one or more **JWT claims** whose payload commits to the set a CID in the archive and is signed by a public key that can be resolved independently (e.g. DID). |
+| _Streaming friendliness_ | Sticks to CAR v1’s _length‑prefixed block stream_ so writers can pipe without seeking. |
+| _Forward compatibility_ | Extra header field `claims` is added; CAR v1 readers that only read `roots`+`version` will simply ignore it. |
 
----
+## File layout
 
-## 2  File layout
+SZDT is built on top of [DASL CAR v1](https://dasl.ing/car.html), a simple file format that contains CBOR headers, followed by blocks of content-addressed data.
 
 ```
-+----------------------+------------------------------+
-| Uvarint(HeaderLen)  | Header (CBOR, HeaderLen bytes)|
-+----------------------+------------------------------+  \
-| Uvarint(Block1Len)  | CID₁ | Raw bytes …           |   |  repeated
-+----------------------+------------------------------+   |  for each
-| Uvarint(Block2Len)  | CID₂ | Raw bytes …           |   |  block
-+----------------------+------------------------------+  /
+|------- Header -------| |------------------- Data -------------------|
+[ int | DAG-CBOR block ] [ int | CID | block ] [ int | CID | block ] …
 ```
 
-### 2.1 Header schema (DAG‑CBOR)
+Because every block is content-addressed, CAR files contain everything you need to verify the integrity of the archive. CAR is used by Bluesky's [ATProtocol](https://atproto.com/specs/repository), and the IPFS ecosystem, making it a good starting point.
+
+On top of this foundation, SZDT layers cryptographic claims (placed in the CAR header metadata), and a dag-cbor manifest describing files, links, and other data belonging to the SZDT arcvhive.
+
+### Header schema
+
+An SZDT CAR header has the following structure:
 
 ```cbor
 {
   "version": 1,
   "roots": [ <cid-bytes>, … ],
-  "proofs": [ <jwt-utf8>, … ]   ; new, optional
+  "claims": [ <jwt-utf8>, … ]   ; new, optional
 }
 ```
 
-* `roots` MUST list every blob CID contained in the file **or** a single manifest‑CID that in turn links to all blobs (preferred for large sets).
-* `proofs` is an array so multiple entities can co‑sign the same archive.
+* `roots` MUST contain a dag-cbor CID for the archive manifest.
+* `claims` contains array of zero or more JWT claims signing over a CID, which is typically the CID for the archive manifest.
 
----
+### Content Identifiers (CIDs)
+
+Content proofs are described as Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata and version information.
+
+SZDT supports two types of CID, specified in [DASL CID](https://dasl.ing/cid.html).
+
+- CID v1 raw SHA-256
+- CID v1 dag-cbor SHA-256
+
+CIDs may be encoded as string or bytes. When encoded as string, only lowercase base32 multibase is supported.
+
+A CID v1's structure is:
+
+```
+<multibase><version><multicodec><multihash><length><digest>
+```
+
+...where multibase, version, multicodec, and multihash are [LEB128](https://en.wikipedia.org/wiki/LEB128) integers describing CID encoding, cid version, data format, and hash function respectively. Length is a LEB128 integer describing digest length, and digest is the bytes of the hash digest.
 
 ## 3  Block encoding
 
