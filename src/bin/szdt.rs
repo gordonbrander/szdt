@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
-use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use szdt::base58btc;
 use szdt::car::{CarBlock, CarHeader, CarReader, CarWriter};
@@ -18,14 +19,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Unpack a szdt archive")]
+    #[command(about = "Unpack a .car archive")]
     Unarchive {
         #[arg(help = "Archive file")]
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
 
-    #[command(about = "Create a szdt archive from a folder full of files")]
+    #[command(about = "Create a .car archive from a folder full of files")]
     Archive {
         #[arg(help = "Directory to archive")]
         #[arg(value_name = "DIR")]
@@ -37,33 +38,45 @@ enum Commands {
         )]
         #[arg(short, long)]
         #[arg(value_name = "KEY")]
-        privkey: String,
+        privkey: Option<String>,
     },
 
     #[command(about = "Generate a private key")]
     Genkey {},
 }
 
-fn archive(dir: PathBuf, _private_key: String) {
-    let file_name = "archive.car";
-    println!("Writing archive: {}", file_name);
-    let car_file = fs::File::create(file_name).expect("Failed to create archive file");
+fn archive(dir: PathBuf, _private_key: Option<String>) {
+    let default_file_name = OsStr::new("archive");
+    let file_name =
+        PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("car");
+
+    println!("Writing archive: {}", file_name.display());
+
+    let car_file = fs::File::create(&file_name).expect("Failed to create archive file");
+
     let header = CarHeader::new_v1();
-    let mut car = CarWriter::new(car_file, &header).expect("Should be able to create CAR");
+
+    let mut car = CarWriter::new(car_file, &header).expect("Should be able to create car");
+
     for path in walk_files(&dir).expect("Directory should be readable") {
         let body = fs::read(&path).expect("Path should be readable");
         let block = CarBlock::from_raw(body);
-        car.write_block(&block)
-            .expect("Should be able to write block");
+        block
+            .write_into(&mut car)
+            .expect("Should be able to write block to car file");
         println!("{} -> {}", &path.display(), block.cid());
     }
-    println!("Archive created: {}", file_name);
+
+    car.flush()
+        .expect("Should be able to flush all writes to car file");
+
+    println!("Archive created: {}", file_name.display());
 }
 
 fn unarchive(file_path: PathBuf) {
     let file = fs::File::open(&file_path).expect("Should be able to open file");
-    let reader: CarReader<fs::File, HashMap<String, String>> =
-        CarReader::read_from(file).expect("Should be able to read CAR file");
+    let reader: CarReader<_, CarHeader> =
+        CarReader::read_from(file).expect("Should be able to read car file");
 
     // Create a folder named after the file path
     let archive_dir: PathBuf = file_path
@@ -71,7 +84,7 @@ fn unarchive(file_path: PathBuf) {
         .map(|p| p.into())
         .unwrap_or("archive".into());
 
-    fs::create_dir_all(&archive_dir).expect("Should be able to create directory");
+    fs::create_dir(&archive_dir).expect("Should be able to create directory");
 
     for block in reader {
         let block = block.expect("Should be able to read block");
