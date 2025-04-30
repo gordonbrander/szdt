@@ -70,7 +70,7 @@ Because every block is content-addressed, CAR files contain everything you need 
 
 On top of this foundation, SZDT layers cryptographic claims (placed in the CAR header metadata), and a dag-cbor manifest describing files, links, and other data belonging to the SZDT arcvhive.
 
-### Header schema
+## Header schema
 
 An SZDT CAR header has the following structure:
 
@@ -82,21 +82,12 @@ An SZDT CAR header has the following structure:
 }
 ```
 
-* `roots` MUST contain a dag-cbor CID for the archive manifest.
+* `roots` MUST contain the dag-cbor CID for the archive manifest.
 * `claims` contains array of zero or more JWT claims signing over a CID, which is typically the CID for the archive manifest.
 
-### Content Identifiers (CIDs)
+## Content Identifiers (CIDs)
 
-Content proofs are described as Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata and version information.
-
-SZDT supports two types of CID, specified in [DASL CID](https://dasl.ing/cid.html).
-
-- CID v1 raw SHA-256
-- CID v1 dag-cbor SHA-256
-
-CIDs may be encoded as string or bytes. When encoded as string, only lowercase base32 multibase is supported.
-
-A CID v1's structure is:
+Content proofs are described with Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata and version information. A CID's structure is:
 
 ```
 <multibase><version><multicodec><multihash><length><digest>
@@ -104,33 +95,59 @@ A CID v1's structure is:
 
 ...where multibase, version, multicodec, and multihash are [LEB128](https://en.wikipedia.org/wiki/LEB128) integers describing CID encoding, cid version, data format, and hash function respectively. Length is a LEB128 integer describing digest length, and digest is the bytes of the hash digest.
 
-## 3  Block encoding
+SZDT supports two kinds of CID, specified in [DASL CID](https://dasl.ing/cid.html).
 
-* **CID**: CID v1, multicodec `0x55` (“raw”), multihash `0x12 0x20` + 32‑byte SHA‑256 digest.citeturn0search1
-* **Block bytes**: the raw, uninterpreted binary blob.
+- CID v1 raw SHA-256
+- CID v1 dag-cbor SHA-256
 
-> _Determinism_: The digest MUST be computed over *exactly* the byte sequence stored after the CID. No canonicalisation permitted.
+CIDs may be encoded as string or bytes. When encoded as string, only lowercase base32 multibase is supported.
 
----
+## Archive manifest
 
-## 4  JWT proof format
+The archive manifest is a dag-cbor map containing a map of files and contacts.
 
-* **Serialization**: JWS Compact (`<base64url(header)>.<base64url(payload)>.<sig>`).citeturn0search2
-* **Recommended alg**: `EdDSA` (Ed25519).
-* **Header** MUST include `typ:"JWT"` and either `kid` or an inline `jwk` so verifiers can obtain the public key.
+```typescript
+type ArchiveManifest = {
+  // Display name for archive
+  dn: String;
+  // Map of file paths to links
+  files: Record<String, Link>;
+  // Map of DIDs to petnames
+  contacts: Record<Did, String>;
+}
 
-### 4.1 Payload claims (registered + private)
+type Link = {
+  // CID for file
+  cid: CID;
+  // Zero or more URLs where it may be found
+  location: Url[];
+}
+```
+
+### CAR block ordering
+
+SZDT writers SHOULD write blocks in depth-first, first seen order, when traversing from `roots`. This ensures efficient streaming when reading.
+
+Practically speaking, assuming the archive manifest is the only root, this should mean that the archive manifest block should be written first.
+
+## Claims
+
+- **Serialization**: JWS Compact (`<base64url(header)>.<base64url(payload)>.<sig>`)
+- **Algorithm**: Ed25519 (`EdDSA`).
+- **Header** MUST include `kid` with `did:key` so verifiers can obtain the public key.
+
+### Payload claims (registered + private)
 
 | Claim | Type | Description |
 |-------|------|-------------|
-| `iss` | URI  | Issuer (e.g. `did:key:…` or HTTPS URL for JWK set). |
+| `iss` | URI  | Issuer (e.g. `did:key:…`). |
 | `iat` | Int  | Issued‑at (seconds since epoch). |
 | `exp` | Int? | (Optional) Expiry. |
-| `cids` | String\[] | Array of lowercase base32 CID strings being vouched for. |
+| `cid` | String\[] | lowercase base32 CID string being vouched for. |
 | `carDigest` | String | Lowercase hex SHA‑256 of the exact header *without* the `proofs` key (prevents header swaps). |
 | `type` | `"car-proof-v1"` | Explicit type tag for extensibility. |
 
-> **Signing input**: the canonical JSON payload bytes (UTF‑8, no whitespace) are signed.  Verifiers MUST canonicalise before hashing to avoid replay via re‑ordered keys.
+> **Signing input**: the canonical JSON payload bytes (UTF‑8, no whitespace) are signed. Verifiers MUST canonicalise before hashing.
 
 ---
 
@@ -159,49 +176,19 @@ If all steps succeed, both every blob and the top‑level collection are authent
 {
   "version": 1,
   "roots": [
-    "bafkreigh2akiscaildcf…",        // blob #1
-    "bafkreifpo5f35bujjm35…"         // blob #2
+    "bafkreigh2akiscaildcf…"        // manifest
   ],
-  "proofs": [
+  "claims": [
     "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImRpZDprZXk6ejZN..."  // compact JWT
   ]
 }
 ```
 
-`roots[0]` corresponds to a block whose first 36 bytes are the binary CID, followed by the blob.
-The JWT payload might decode to:
-
-```json
-{
-  "iss": "did:key:z6MkuP...9gf",
-  "iat": 1745030400,
-  "cids": [
-    "bafkreigh2akiscaildcf…",
-    "bafkreifpo5f35bujjm35…"
-  ],
-  "carDigest": "bc5fe122e0d7…30a2",
-  "type": "car-proof-v1"
-}
-```
-
----
-
-## 7  Extensibility & interop notes
+##  Extensibility & interop notes
 
 * **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.citeturn0search0
 * **Multiple manifests**: To avoid gigantic root arrays, store one DAG‑CBOR manifest node listing all blob CIDs and use *that* CID as the single root.
 * **CAR v2 compatibility**: The same header object can be embedded verbatim inside a CAR v2 payload file.
-
----
-
-## 8  Security considerations
-
-| Threat | Mitigation |
-|--------|------------|
-| **Blob replacement** | The multihash in each CID binds the bytes. |
-| **Header replay / substitution** | `carDigest` inside every proof pins the header. |
-| **Proof stripping** | Upgraders should refuse a CAR with zero valid proofs when policy demands at least one. |
-| **Key rotation** | Because proofs are JWTs, you can publish new JWTs (with later `iat`) without touching the archive bytes. |
 
 # Appendix
 
