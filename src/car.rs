@@ -228,33 +228,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_car_roundtrip() {
+    fn test_car_roundtrip_with_tempfile() {
+        use std::io::{Seek, SeekFrom};
+        use tempfile::tempfile;
+
         // Create a test header in CBOR format
         // For simplicity, we're creating a CAR v1 header with an empty roots array
         let header = CarHeader::new_v1();
 
-        // Create buffer as virtual "file"
-        let mut car_buffer = Vec::new();
+        // Create a temporary file
+        let mut temp_file = tempfile().unwrap();
 
         // Create writer and write header
-        let mut car_writer = CarWriter::new(&mut car_buffer, &header).unwrap();
+        let mut car_writer = CarWriter::new(&mut temp_file, &header).unwrap();
 
         // Write block
         let block_body = "Hello world";
         let car_block = CarBlock::from_raw(block_body.as_bytes().to_vec());
         car_writer.write_block(&car_block).unwrap();
 
+        let block_body_2 = "Hola world";
+        let car_block_2 = CarBlock::from_raw(block_body_2.as_bytes().to_vec());
+        car_writer.write_block(&car_block_2).unwrap();
+
+        // Reset file position to beginning
+        temp_file.seek(SeekFrom::Start(0)).unwrap();
+
         // Read the header back
-        let car_reader: CarReader<_, CarHeader> =
-            CarReader::read_from(car_buffer.as_slice()).unwrap();
+        let car_reader: CarReader<_, CarHeader> = CarReader::read_from(&mut temp_file).unwrap();
 
         // Verify the result
         assert_eq!(&header, car_reader.header());
 
         let blocks: Result<Vec<CarBlock>, Error> = car_reader.collect();
         let blocks = blocks.unwrap();
-        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks.len(), 2);
+
         let block = blocks.first().unwrap();
         assert_eq!(block.body(), block_body.as_bytes());
+
+        let block_2 = blocks.get(1).unwrap();
+        assert_eq!(block_2.body(), block_body_2.as_bytes());
     }
 }
