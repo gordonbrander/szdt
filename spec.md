@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a
 
-A container format for distributed, censorship-resistant publishing and archiving. Pronounced "Samizdat".
+Signed .car files for censorship-resistant publishing and archiving. Pronounced "Samizdat".
 
 ## Motivation
 
@@ -22,12 +22,12 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 
 ## The idea
 
-**TLDR**: a cryptographically-signed CBOR object containing:
+**TLDR**: a cryptographically-signed .car file containing:
 
 - **Files** stored as raw bytes
-- **Links** to additional external files, with redundant URLs and/or magnet links for retrieval, plus checksums for veryifying file integrity.
+- **Links** to additional external files, with content addresses for verifying integrity and multiple redundant URLs for retrieval
 - **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic signature** proving the authenticity of the archive
+- **Cryptographic claims** proving the authenticity of the archive
 
 ## Goals
 
@@ -43,151 +43,158 @@ If there are many copies, and many ways to find them, then data can survive the 
 ### Non-goals
 
 - **P2P**: SZDT is transport-agnostic. It's just a file format. You should be able to publish, share, and retreive SZDT archives from anywhere, including HTTP, BitTorrent, email, messaging apps, sneakernet, etc.
-- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry too much about efficient streaming or chunking. When efficient downloading is needed, we leverage established protocols like BitTorrent.
+- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry about efficient chunking, or deduping. When efficient downloading is needed, we leverage established protocols like BitTorrent.
 - **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
 
 ## Speculative specification
 
-**TLDR**: SZDT is a cryptographically-signed CBOR object containing binary file data, plus redundant links to additional data.
+## High‑level goals
 
-The format is made up of two parts:
+| Requirement | Design choice |
+|-------------|---------------|
+| _Self‑verifying per‑object_ | Every blob is stored as a **raw IPLD block** whose CID’s multihash is the SHA‑256 of the exact bytes in the block. |
+| _Self‑verifying per‑archive_ | The archive header contains one or more **JWT claims** whose payload commits to the set a CID in the archive and is signed by a public key that can be resolved independently (e.g. DID). |
+| _Streaming friendliness_ | Sticks to CAR v1’s _length‑prefixed block stream_ so writers can pipe without seeking. |
+| _Forward compatibility_ | Extra header field `claims` is added; CAR v1 readers that only read `roots`+`version` will simply ignore it. |
 
-- an outer signed [CBOR COSE_Sign1](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) envelope, proving the authenticity of the data
-- an inner CBOR object describing the archive data
+## File layout
 
-The outer COSE_Sign1 envelope is described in [RFC 9052](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer). It has the following high-level structure:
+SZDT is built on top of [DASL CAR v1](https://dasl.ing/car.html), a simple file format that contains CBOR headers, followed by blocks of content-addressed data.
 
-```typescript
-// TODO redo this in CBOR Diagnostic Language.
-type COSE_Sign1 = [
-    Uint8Array, // Protected headers
-    Record<string | number, unknown>, // Unprotected headers
-    Uint8Array, // Body bytes
-    Uint8Array, // Ed25519 signature bytes
-];
+```
+|------- Header -------| |------------------- Data -------------------|
+[ int | DAG-CBOR block ] [ int | CID | block ] [ int | CID | block ] …
 ```
 
-The COSE_Sign1 envelope used for SZDT should be tagged with [CBOR tag 18, the tag for `COSE_Sign1`](https://www.rfc-editor.org/rfc/rfc9052.html#section-4.2-2). SZDT authoring programs must tag the envelope with this tag. SZDT clients should attempt to read the COSE_Sign1 envelope, even if the envelope is not tagged.
+Because every block is content-addressed, CAR files contain everything you need to verify the integrity of the archive. CAR is used by Bluesky's [ATProtocol](https://atproto.com/specs/repository), and the IPFS ecosystem, making it a good starting point.
 
-The envelope should include specific header data in the protected headers:
+On top of this foundation, SZDT layers cryptographic claims (placed in the CAR header metadata), and a dag-cbor manifest describing files, links, and other data belonging to the SZDT arcvhive.
 
-- `kid`: a DID which resolves to a public key that can be used to verify the signature. Only the [`did:key`](https://github.com/digitalbazaar/did-method-key) is expected to be supported at this time. The `did:key` must encode an `Ed25519` public key.
-- `cty`: a content type of `application/vnd.szdt.archive+cbor`
+## Header schema
 
-```typescript
-type ProtectedHeaders = Record<string | number, unknown> & {
-  kid: string, // did:key corresponding to signature
-  cty: "application/vnd.szdt.archive+cbor", // Content type
-},
-```
+An SZDT CAR header has the following structure:
 
-The body bytes contain a CBOR encoded `Archive` object, with the following high-level structure:
-
-```typescript
-// Decoded from cbor bytes in memo body
-// for cty "application/vnd.szdt.archive+cbor"
-type Archive = {
-    name: string; // identifier that is unique to the public key
-    timestamp: number; // Timestamp denoting when this archive was created.
-    files: Array<File | Link>;
-    contacts: Contact[];
-    urls: []; // URLS where updates for this archive may be found
+```cbor
+{
+  "version": 1,
+  "roots": [ <cid-bytes>, … ],
+  "claims": [ <jwt-utf8>, … ]   ; new, optional
 }
+```
 
-type File = {
-    type: "File";
-    path: string;
-    content: Uint8Array; // File bytes
-    meta?: Record<string | number, unknown>; // Arbtrary metadata
+* `roots` MUST contain the dag-cbor CID for the archive manifest.
+* `claims` contains array of zero or more JWT claims signing over a CID, which is typically the CID for the archive manifest.
+
+## Content Identifiers (CIDs)
+
+Content proofs are described with Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata and version information. A CID's structure is:
+
+```
+<multibase><version><multicodec><multihash><length><digest>
+```
+
+...where multibase, version, multicodec, and multihash are [LEB128](https://en.wikipedia.org/wiki/LEB128) integers describing CID encoding, cid version, data format, and hash function respectively. Length is a LEB128 integer describing digest length, and digest is the bytes of the hash digest.
+
+SZDT supports two kinds of CID, specified in [DASL CID](https://dasl.ing/cid.html).
+
+- CID v1 raw SHA-256
+- CID v1 dag-cbor SHA-256
+
+CIDs may be encoded as string or bytes. When encoded as string, only lowercase base32 multibase is supported.
+
+## Archive manifest
+
+The archive manifest is a dag-cbor map containing a map of files and contacts.
+
+```typescript
+type ArchiveManifest = {
+  // Display name for archive
+  dn: String;
+  // Map of file paths to links
+  files: Record<String, Link>;
+  // Map of DIDs to petnames
+  contacts: Record<Did, String>;
 }
 
 type Link = {
-    type: "Link";
-    path: string;
-    urls: string[]; // HTTP, magnet, etc
-    filehash: Uint8Array; // multihash SHA-256 of file bytes
-    meta?: Record<string | number, unknown>; // Arbtrary metadata
-}
-
-type Contact = {
-    nickname: string; // Suggested name for key
-    pubkey: string; // Ed25519 public key
+  // CID for file
+  cid: CID;
+  // Zero or more URLs where it may be found
+  location: Url[];
 }
 ```
 
-- `timestamp`: a timestamp denoting when this archive was created.
-- `name`: a name for the archive. The name may be used to logically identify the archive. For example, a client may use the name as a directory name when unpacking archive contents.
-- `files`: an array of `File` or `Link` structures, represented as CBOR maps.
-  - `File`
-    - `path`: a suggested file path when unpacking the archive
-    - `content`: the raw bytes of the original file contents
-    - `meta`: a CBOR map of arbitrary metadata. Archive authors may use this field to record additional comments and library metadata such as ISBNs, etc.
-  - `Link`
-    - `path`: a suggested file path when unpacking the archive
-    - `urls`: an array of URLs where future updates to the archive may be found. URLs typically include multiple HTTP URLs, but may include any valid URL type, including [magnet links](https://en.wikipedia.org/wiki/Magnet_URI_scheme) to torrents, etc.
-    - `filehash`: the [multihash](https://github.com/multiformats/multihash) SHA2-256 hash of the raw file bytes.
-    - `meta`: a CBOR map of arbitrary metadata. Archive authors may use this field to record additional comments and library metadata such as ISBNs, etc.
-- `urls`: an array of URLs where future updates to the archive may be found. URLs typically include multiple HTTP URLs, but may include any valid URL type, including [magnet links](https://en.wikipedia.org/wiki/Magnet_URI_scheme) to torrents, etc.
-- `contacts`: an array of zero or more `Contact` structures, represented as CBOR maps. Can be used by clients to build up their own address book of contacts.
-  - `Contact` contains
-    - `pubkey`: An Ed25519 public key, acting as the identifier for the contact (multicodec encoded)
-    - `nickname`: The [petname](https://files.spritely.institute/papers/petnames.html) given to this public key by the archive. This field may be used as a suggestion by clients, if users decide to add the public key to their own list of contacts.
+### CAR block ordering
 
-`meta` fields are provided in many structures of the archive to support workflows where catalog metadata, such as ISBNs, are stored alongside the file bytes and URLs. We expect some archives may consist entirely of catalog metadata and URLs. Distributing metadata can, in many cases, be as valuable as distributing the archival data itself.
+SZDT writers SHOULD write blocks in depth-first, first seen order, when traversing from `roots`. This ensures efficient streaming when reading.
 
-### Signing archives
+Practically speaking, assuming the archive manifest is the only root, this should mean that the archive manifest block should be written first.
 
-Signing the memo is accomplished by signing the body bytes with the [COSE_Sign1 signing process](https://www.rfc-editor.org/rfc/rfc9052.html#name-signing-with-one-signer) using the [Ed25519 signature scheme](https://www.rfc-editor.org/rfc/rfc9052.html).
+## Claims
 
-> TODO: consider UCAN, ZCAP, or similar for delegation/key rotation (see Noosphere's approach)
+- **Serialization**: JWS Compact (`<base64url(header)>.<base64url(payload)>.<sig>`)
+- **Algorithm**: Ed25519 (`EdDSA`).
+- **Header** MUST include `kid` with `did:key` so verifiers can obtain the public key.
 
-> 📘 Why Ed25519? Why not…
-> - Ed25519
->   - Advantages
->   - Disadvantages
-> - secp256k1
->   - Advantages
->   - Disadvantages
+### Payload claims (registered + private)
 
-### Generating file hashes
+| Claim | Type | Description |
+|-------|------|-------------|
+| `iss` | URI  | Issuer (e.g. `did:key:…`). |
+| `iat` | Int  | Issued‑at (seconds since epoch). |
+| `exp` | Int? | (Optional) Expiry. |
+| `cid` | String\[] | lowercase base32 CID string being vouched for. |
+| `carDigest` | String | Lowercase hex SHA‑256 of the exact header *without* the `proofs` key (prevents header swaps). |
+| `type` | `"car-proof-v1"` | Explicit type tag for extensibility. |
 
-Cryptographic hashes are used to verify file integrity when linking to resources.
+> **Signing input**: the canonical JSON payload bytes (UTF‑8, no whitespace) are signed. Verifiers MUST canonicalise before hashing.
 
-File hashes are generated with the SHA-256 hashing function. SHA-256 is chosen for its ubiquity and cryptographic security.
+---
 
-The `filehash` is the SHA-256 hash in [multihash](https://github.com/multiformats/multihash) format. In practice, this means it will have a two byte prefix of `0x12 0x20`.
+## 5  Verification procedure
 
-> 📘 Why Sha256? Why not...
-> - Sha256
->   - Advantages
->     - Ubiquitous
->     - Used by Nostr for hashes
->   - Disadvantages
->     - Iroh doesn't use it
-> - Blake3
->   - Advantages
->     - Small and fast hashes
->     - [Iroh](https://iroh.computer/) can used them as a "CID" retreive file data over an IPFS-like p2p network.
->     - Streaming verification
->   - Disadvantages
->     - Newer, not ubiquitous
-> - MD5
->   - Advantages
->     - Used by Anna's Archive, LibGen
->   - Disadvantages
->     - Hash collisions, insecure. I think this rules it out.
+1. **Per‑block integrity**
+   *Read block → hash → compare to CID multihash.*
+2. **Header integrity**
+   *Compute SHA‑256 of the header minus `proofs`; compare to `carDigest` in each proof.*
+3. **Signature validity**
+   *For every JWT in `proofs`:*
+   a. Resolve public key from `kid` or `jwk`.
+   b. Verify JWS signature.
+   c. Check `exp`, `iat` as usual.
+4. **CID coverage**
+   *The set in `cids` MUST equal (or superset) the set in `roots`.*
 
-### Updating archives
+If all steps succeed, both every blob and the top‑level collection are authenticated.
 
-Clients may choose to treat archives as versioned resources, where the pubkey is the logical identifier for the archive, and updates use a Last-Write-Wins strategy, using the archive timestamp.
+---
 
-> **Note**: Since the archive is signed, we can trust that the timestamp is expressing the author's intention regarding which version of the archive should be considered most recent.
+## 6  Example (illustrative)
 
-Notably, authors are free to embed structures like CRDTs in the file portions of the format, allowing for even finer-grained merge strategies, although this is outside the scope of this specification, and up to the author.
+```jsonc
+// Header (object before CBOR encoding)
+{
+  "version": 1,
+  "roots": [
+    "bafkreigh2akiscaildcf…"        // manifest
+  ],
+  "claims": [
+    "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImRpZDprZXk6ejZN..."  // compact JWT
+  ]
+}
+```
+
+##  Extensibility & interop notes
+
+* **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.citeturn0search0
+* **Multiple manifests**: To avoid gigantic root arrays, store one DAG‑CBOR manifest node listing all blob CIDs and use *that* CID as the single root.
+* **CAR v2 compatibility**: The same header object can be embedded verbatim inside a CAR v2 payload file.
 
 # Appendix
 
-### Packging format
+## References
+
+## Packging format
 
 A SZDT archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
 

@@ -1,7 +1,13 @@
-pub mod archive;
-pub mod cose;
+pub mod base58btc;
+pub mod byte_counter_reader;
+pub mod car;
+pub mod cid;
+pub mod claim;
 pub mod did;
 pub mod ed25519;
 pub mod error;
-pub mod hash;
+pub mod file;
+pub mod multiformats;
+pub mod multihash;
 pub mod util;
+pub mod varint;
