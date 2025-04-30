@@ -17,6 +17,11 @@ impl<R: Read, H> CarReader<R, H> {
     pub fn header(&self) -> &H {
         &self.header
     }
+
+    /// Unwrap, returning the inner reader.
+    pub fn inner(self) -> R {
+        self.reader
+    }
 }
 
 impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
@@ -31,6 +36,12 @@ impl<R: Read, H: de::DeserializeOwned> CarReader<R, H> {
         let header: H = serde_ipld_dagcbor::from_slice(&header_buffer)
             .map_err(|e| Error::Serialization(e.to_string()))?;
         return Ok(Self { header, reader });
+    }
+}
+
+impl<R: Read, H> Read for CarReader<R, H> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.reader.read(buf)
     }
 }
 
@@ -64,12 +75,19 @@ impl<W: Write> CarWriter<W> {
         Ok(CarWriter { writer })
     }
 
-    pub fn inner(&mut self) -> &mut W {
-        &mut self.writer
+    /// Unwrap, returning the inner writer.
+    pub fn inner(self) -> W {
+        self.writer
+    }
+}
+
+impl<W: Write> Write for CarWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.writer.write(buf)
     }
 
-    pub fn write_block(&mut self, block: &CarBlock) -> Result<usize, Error> {
-        block.write_into(&mut self.writer)
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
     }
 }
 
@@ -245,11 +263,11 @@ mod tests {
         // Write block
         let block_body = "Hello world";
         let car_block = CarBlock::from_raw(block_body.as_bytes().to_vec());
-        car_writer.write_block(&car_block).unwrap();
+        car_block.write_into(&mut car_writer).unwrap();
 
         let block_body_2 = "Hola world";
         let car_block_2 = CarBlock::from_raw(block_body_2.as_bytes().to_vec());
-        car_writer.write_block(&car_block_2).unwrap();
+        car_block_2.write_into(&mut car_writer).unwrap();
 
         // Reset file position to beginning
         temp_file.seek(SeekFrom::Start(0)).unwrap();
