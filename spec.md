@@ -97,20 +97,31 @@ An SZDT CAR header has the following structure:
 
 ## Content Identifiers (CIDs)
 
-Content proofs are described with Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata and version information. A CID's structure is:
+Content proofs are described with Content Identifiers (CIDs). CIDs are essentially file hashes with some additional bytes for metadata. A CID's structure is:
 
 ```
 <multibase><version><multicodec><multihash><length><digest>
 ```
 
-...where multibase, version, multicodec, and multihash are [LEB128](https://en.wikipedia.org/wiki/LEB128) integers describing CID encoding, cid version, data format, and hash function respectively. Length is a LEB128 integer describing digest length, and digest is the bytes of the hash digest.
+...where multibase, version, multicodec, multihash, and length are [LEB128](https://en.wikipedia.org/wiki/LEB128) integers, and digest is the bytes of the hash digest.
 
-SZDT supports two kinds of CID, specified in [DASL CID](https://dasl.ing/cid.html).
+SZDT supports two kinds of CID, both specified in [DASL CID](https://dasl.ing/cid.html).
 
-- CID v1 raw SHA-256
-- CID v1 dag-cbor SHA-256
+**Raw CID**: CID v1 with raw codec (0x55) and SHA-256 (0x12) hash:
 
-CIDs may be encoded as string or bytes. When encoded as string, only lowercase base32 multibase is supported.
+```
+# Raw CID prefix
+0x01 0x55 0x12 0x20 ...
+```
+
+**dag-cbor CID**: CID v1 with dag-cbor codec (0x71) and SHA-256 (0x12) hash:
+
+```
+# dag-cbor CID prefix
+0x01 0x71 0x12 0x20 ...
+```
+
+CIDs may be [multibase base-encoded](https://github.com/multiformats/multicodec/blob/master/table.csv) as string or bytes. When encoded as a string, only lowercase base32 is supported.
 
 ## Archive manifest
 
