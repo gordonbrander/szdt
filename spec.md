@@ -68,7 +68,17 @@ SZDT is built on top of [DASL CAR v1](https://dasl.ing/car.html), a simple file 
 
 Because every block is content-addressed, CAR files contain everything you need to verify the integrity of the archive. CAR is used by Bluesky's [ATProtocol](https://atproto.com/specs/repository), and the IPFS ecosystem, making it a good starting point.
 
-On top of this foundation, SZDT layers cryptographic claims (placed in the CAR header metadata), and a dag-cbor manifest describing files, links, and other data belonging to the SZDT arcvhive.
+### Block order
+
+While CAR does not mandate a block order, SZDT CAR writers SHOULD write blocks in first-seen order, as a result of a depth-first DAG traversal starting from root(s), in order of roots. This ensures efficient streaming when reading. Practically speaking, assuming the archive manifest is the only root, this should mean that the archive manifest block should be written first.
+
+> Note: [Filecoin implementation uses this same block order](https://ipld.io/specs/transport/car/carv1/#determinism), and also restricts roots to a single CID.
+
+In keeping with the [robustness principle](https://en.wikipedia.org/wiki/Robustness_principle), SZDT CAR readers MUST NOT assume block order, and MUST accept blocks in any order.
+
+### Content Type
+
+CAR files have a mime type of `application/vnd.ipld.car`.
 
 ## Header schema
 
@@ -123,12 +133,6 @@ type Link = {
   location: Url[];
 }
 ```
-
-## CAR block ordering
-
-SZDT writers SHOULD write blocks in depth-first, first seen order, when traversing from `roots`. This ensures efficient streaming when reading.
-
-Practically speaking, assuming the archive manifest is the only root, this should mean that the archive manifest block should be written first.
 
 ## Claims
 
