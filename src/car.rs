@@ -19,7 +19,7 @@ impl<R: Read, H> CarReader<R, H> {
     }
 
     /// Unwrap, returning the inner reader.
-    pub fn inner(self) -> R {
+    pub fn into_inner(self) -> R {
         self.reader
     }
 }
@@ -76,7 +76,7 @@ impl<W: Write> CarWriter<W> {
     }
 
     /// Unwrap, returning the inner writer.
-    pub fn inner(self) -> W {
+    pub fn into_inner(self) -> W {
         self.writer
     }
 }
