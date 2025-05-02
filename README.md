@@ -46,6 +46,10 @@ If there are many copies, and many ways to find them, then data can survive the 
 - **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry about efficient chunking, or deduping. When efficient downloading is needed, we leverage established protocols like BitTorrent.
 - **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
 
+## Specification
+
+See [spec.md](./spec.md).
+
 ## Development
 
 ### Installing binaries on your path with Cargo
