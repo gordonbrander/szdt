@@ -181,8 +181,6 @@ If the **integrity** of the CAR is verfied, and the **authenticity** of the CAR 
 
 Note that headers are neither signed nor verified for integrity, by design. All proofs are made over the blocks of the CAR file, with the CAR headers acting as modifiable metadata. This supports workflows where multible actors may witness or amend to a CAR file without invalidating the proofs and claims made by other actors over subsections of the archive. Nevertheless, when retreiving a CAR via content addressing, integrity of the entire file, including headers, may be verified.
 
----
-
 ## Example (illustrative)
 
 ```jsonc
@@ -198,43 +196,15 @@ Note that headers are neither signed nor verified for integrity, by design. All 
 }
 ```
 
-## Extensibility & interop notes
-
-* **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.
-* **Multiple manifests**: To avoid gigantic root arrays, store one DAG‑CBOR manifest node listing all blob CIDs and use *that* CID as the single root.
-* **CAR v2 compatibility**: The same header object can be embedded verbatim inside a CAR v2 payload file.
-
 # Appendix
 
+
+## Extensibility & interop notes
+
+- **Unknown header keys**: The CAR v1 spec states that only `roots` and `version` are required; decoders that ignore unknown keys remain compliant.
+- **Manifest**: To avoid gigantic root arrays, store one DAG‑CBOR manifest node listing all blob CIDs and use *that* CID as the single root. CAR does not mandate single root, but it seems to be the norm. This ensures that everything in the DAG-CBOR structure is verified for integrity, and also gives us a single CID to sign over.
+
 ## References
-
-## Packging format
-
-A SZDT archive is a [CBOR](https://cbor.io/) file. CBOR is chosen for its simplicity, ability to efficiently encode binary data, and its increasing ubiquity.
-
-> 📘 Why CBOR? Why not...
-> - CBOR
->   - Advantages
->     - IETF standard
->     - Streaming parsing
->     - Widely available libraries
->   - Disadvantages
->     - Not human readable
->     - Higher barrier to entry vs JSON
-> - JSON
->   - Advantages
->     - Ubiquitous
->     - Human-readable and authorable
->   - Disadvantages
->     - Can't embed file bytes without encoding
-> - Zip
->    - Advantages
->      - Ubiquitous
->      - Users can un-archive using built-in OS tools
->      - Random access
->    - Disadvantages
->      - No streaming parsing
->      - Higher barrier to entry in browser environment
 
 ## Example use-cases
 
@@ -266,9 +236,64 @@ Here are a few things you can do, or that should be easy to do with SZDT.
 - Why not Internet Archive/Library of Congress/LibGen/Anna's Archive/Sci-Hub?
     - SZDT could be used with or alongside any of these. Our goal is not to replace archival projects, but to offer a (possibly complimentary) "dandelion seed" file format.
     - Like our namesake, the focus of SZDT is on censorship-resistant self-publishing. Our use-cases include archiving, but also smaller-scale tasks such as personal archives, notes, and other content that may never make it into these larger archives.
-- Why CBOR? Why not ZIP?
-    - CBOR is fast and easy to unpack in a browser context.
-    - CBOR is an IETF standard with broad support across languages, and an increasingly capable toolchain.
+- Why CAR?
+  - Existing specs
+    - [DASL](https://dasl.ing/).
+  - Simple
+    - Like TAR, it is basically a sequence of blocks.
+    - Even if everyone forgets what CAR is in 100 years, you could poke at the bytes and write a decoder in a day.
+  - Open-ended metadata
+    - CAR supports CBOR headers and DAG-CBOR blocks.
+  - Integrity verification
+    - Each block is prefixed by CIDs.
+  - Streaming
+    - Easy to append new blocks to the end.
+    - Archive files can be quite large, and streaming processing may be a necessity for some collections.
+    - This is why many archival projects use WARC or TAR — formats that are essentially flat sequences of blocks.
+  - Can be easily unpacked in a browser context
+  - [ATProto](https://atproto.com/specs/repository#car-file-serialization) supports CAR. A small ecosystem of tooling is being built around CAR because AtProto PDS supports CAR.
+    - E.g. [satnav])(https://github.com/blacksky-algorithms/rsky/tree/main/rsky-satnav),
+  - CAR does have disadvantages.
+    - It's binary, not human readable. Higher barrier to entry vs JSON.
+    - It's not an IETF standard
+    - Fewer implementations
+    - You also need a CBOR (ideally a dag-cbor) implementation
+    - CIDs (particularly the LEB128 ints) are more complicated than just a hash
+    - However, the pros outweigh the cons for this project.
+- Why not...
+  - CBOR
+    - Advantages
+      - IETF standard
+      - Streaming parsing
+      - Widely available libraries
+    - Disadvantages
+      - It's binary, not human readable. Higher barrier to entry vs JSON.
+      - Higher barrier to entry vs JSON
+      - Requirement to close body makes streaming-appending workflows difficult
+  - JSON
+    - Advantages
+      - Ubiquitous
+      - Human-readable and authorable
+    - Disadvantages
+      - Can't embed file bytes without base encoding
+  - Zip
+    - Advantages
+      - Ubiquitous
+      - Users can un-archive using built-in OS tools
+      - Random access
+    - Disadvantages
+      - No streaming parsing
+      - Can't append blocks
+      - Higher barrier to entry in browser environment
+      - Metadata is more difficult (easiest approach is to add a manifest file to ZIP)
+  - TAR
+    - Advantages
+      - Ubiquitous
+      - Users can un-archive using built-in OS tools (except on Windows)
+      - Streaming
+      - Archival projects already use it
+    - Disadvantages
+      - Metadata is more difficult (easiest approach is to add a manifest file)
 - Why censorship-resistance?
     - Censorship-restance is another way of saying "resilience". There are many reasons to want resilient, decentralized knowledge repositories.
 
