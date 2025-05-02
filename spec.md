@@ -159,26 +159,27 @@ type Link = {
 | `iat` | Int  | Issued‑at (seconds since epoch). |
 | `exp` | Int? | (Optional) Expiry. |
 | `cid` | String\[] | lowercase base32 CID string being vouched for. |
-| `carDigest` | String | Lowercase hex SHA‑256 of the exact header *without* the `proofs` key (prevents header swaps). |
-| `type` | `"car-proof-v1"` | Explicit type tag for extensibility. |
+| `kind` | `"witness"` | Explicit type tag for extensibility. |
 
 > **Signing input**: the canonical JSON payload bytes (UTF‑8, no whitespace) are signed. Verifiers MUST canonicalise before hashing.
 
-## Verification procedure
+### Verification procedure
 
-1. **Per‑block integrity**
-   *Read block → hash → compare to CID multihash.*
-2. **Header integrity**
-   *Compute SHA‑256 of the header minus `proofs`; compare to `carDigest` in each proof.*
-3. **Signature validity**
-   *For every JWT in `proofs`:*
-   a. Resolve public key from `kid` or `jwk`.
-   b. Verify JWS signature.
-   c. Check `exp`, `iat` as usual.
-4. **CID coverage**
-   *The set in `cids` MUST equal (or superset) the set in `roots`.*
+**Integrity** of SZDT archives may be verified using standard CAR reading procedures:
 
-If all steps succeed, both every blob and the top‑level collection are authenticated.
+- For each block in the CAR file
+  - Retrieve the CID for the block
+  - Recompute the CID for the block, using the same codec as the block cid
+  - Compare CIDs to verify cryptographic integrity
+- If every block CID matches the equivalent recomputed CID, the CAR's integrity is considered valid.
+
+**Authenticity** of the archive may be verified along multiple dimensions by verifying the JWTs in the `claims` header according to the verification procedures outlined in [RFC7519](https://datatracker.ietf.org/doc/html/rfc7519).
+
+In particular, implementors may wish to check for the presence of a `witness` claim, signed by a key trusted by the user. Verifying the claim provides a cryptographic proof that the key witnessed a cid. When an archive manifest is witnessed, users can be assured that the entire archive contents are witnessed, since content referenced by the manifest is content addressed.
+
+If the **integrity** of the CAR is verfied, and the **authenticity** of the CAR has been verified for any claims relevant to the use-case, then the archive is considered valid.
+
+Note that headers are neither signed nor verified for integrity, by design. All proofs are made over the blocks of the CAR file, with the CAR headers acting as modifiable metadata. This supports workflows where multible actors may witness or amend to a CAR file without invalidating the proofs and claims made by other actors over subsections of the archive. Nevertheless, when retreiving a CAR via content addressing, integrity of the entire file, including headers, may be verified.
 
 ---
 
