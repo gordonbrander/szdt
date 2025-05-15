@@ -34,7 +34,7 @@ pub fn slice_to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
 
 /// Sign bytes with a private key.
 /// Returns signature bytes.
-pub fn sign(bytes: &Vec<u8>, secret_key: &SecretKey) -> SignatureBytes {
+pub fn sign(bytes: &[u8], secret_key: &SecretKey) -> SignatureBytes {
     // Generate a keypair
     let signing_key = SigningKey::from_bytes(secret_key);
     signing_key.sign(&bytes).to_bytes()
@@ -48,7 +48,7 @@ pub fn generate_private_key() -> SecretKey {
 
 /// Convert a Vec<u8> to PrivateKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey, Error> {
+pub fn vec_to_private_key(bytes: &[u8]) -> Result<SecretKey, Error> {
     if bytes.len() != SECRET_KEY_LENGTH {
         return Err(Error::InvalidSecretKey(format!(
             "Private key must be {} bytes, got {}",

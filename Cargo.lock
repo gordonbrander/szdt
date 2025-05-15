@@ -582,6 +582,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_ipld_dagjson"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3359b47ba7f4a306ef5984665e10539e212e97217afa489437d533208eecda36"
+dependencies = [
+ "ipld-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "serde_json"
 version = "1.0.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -660,7 +671,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_ipld_dagcbor",
- "serde_json",
+ "serde_ipld_dagjson",
  "sha2",
  "tempfile",
  "thiserror",

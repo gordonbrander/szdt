@@ -23,7 +23,7 @@ multihash = "0.19.3"
 rand = "0.8.5"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_ipld_dagcbor = "=0.6.3"
-serde_json = "1.0.140"
+serde_ipld_dagjson = "0.2.0"
 sha2 = "0.10.8"
 thiserror = "2.0.12"
 unsigned-varint = "0.8.0"
