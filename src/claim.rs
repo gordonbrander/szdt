@@ -1,52 +1,25 @@
 use crate::ed25519::{self, SignatureBytes};
 use crate::{did::DidKey, util::now_epoch_secs};
 use cid::Cid;
-use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
+use std::collections::TryReserveError;
 use thiserror::Error;
 
-pub struct Builder {
-    payload: Payload,
-}
-
-impl Builder {
-    pub fn new(payload: Payload) -> Self {
-        Self { payload }
-    }
-
-    /// Sign payload.
-    /// Returns a result for Claim.
-    pub fn sign(self, secret_key: ed25519::SecretKey) -> Result<Claim, Error> {
-        let header = Header::new_ed25519();
-        let header_base64 = header.jwt_base64_encode()?;
-        let payload_base64 = self.payload.jwt_base64_encode()?;
-        // Construct the first portion of the JWt
-        let data_to_sign = format!("{header_base64}.{payload_base64}")
-            .as_bytes()
-            .to_vec();
-        let signature = ed25519::sign(&data_to_sign, &secret_key);
-        Ok(Claim {
-            header,
-            payload: self.payload,
-            signed_data: data_to_sign,
-            signature,
-        })
-    }
-}
-
-/// An SZDT Claim. Claims are valid JWTs, and canonicalized to JWT form for signing.
-/// Claim provides the structured data in a claim, but does not validate the claim
-/// on construction. To validate the validity of the claim, you can call `claim.validate()`.
+/// An SZDT Claim.
 pub struct Claim {
-    header: Header,
     payload: Payload,
-    signed_data: Vec<u8>,
     signature: ed25519::SignatureBytes,
 }
 
 impl Claim {
-    pub fn header(&self) -> &Header {
-        &self.header
+    pub fn new(payload: Payload, signature: ed25519::SignatureBytes) -> Self {
+        Self { payload, signature }
+    }
+
+    pub fn sign(payload: Payload, secret_key: &ed25519::SecretKey) -> Result<Self, Error> {
+        let payload_bytes: Vec<u8> = (&payload).try_into()?;
+        let signature = ed25519::sign(&payload_bytes, &secret_key);
+        Ok(Self::new(payload, signature))
     }
 
     pub fn payload(&self) -> &Payload {
@@ -72,7 +45,8 @@ impl Claim {
     /// Check if signature is valid for claim
     pub fn check_signature(&self) -> Result<(), Error> {
         let public_key = self.payload.iss.pubkey();
-        let result = ed25519::verify(&self.signed_data, &self.signature, public_key)?;
+        let payload_bytes = self.payload().try_into()?;
+        let result = ed25519::verify(&payload_bytes, &self.signature, public_key)?;
         return Ok(result);
     }
 
@@ -93,27 +67,6 @@ impl Claim {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub struct Header {
-    pub alg: String,
-    pub typ: String,
-}
-
-impl Header {
-    pub fn new_ed25519() -> Self {
-        Self {
-            alg: "EdDSA".to_string(),
-            typ: "JWT".to_string(),
-        }
-    }
-
-    /// Encode as base64-encoded dag-json
-    pub fn jwt_base64_encode(&self) -> Result<String, Error> {
-        let dag_json = serde_ipld_dagjson::to_vec(self)?;
-        Ok(BASE64.encode(&dag_json))
-    }
-}
-
 /// A signed claim
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Payload {
@@ -126,14 +79,15 @@ pub struct Payload {
     /// Expiration time (UNIX timestamp, seconds)
     pub exp: Option<u64>,
     /// Assertions
-    pub assertions: Vec<Assertion>,
+    pub ast: Vec<Assertion>,
 }
 
-impl Payload {
-    /// Encode as base64-encoded dag-json
-    pub fn jwt_base64_encode(&self) -> Result<String, Error> {
-        let dag_json = serde_ipld_dagjson::to_vec(self)?;
-        Ok(BASE64.encode(&dag_json))
+impl TryFrom<&Payload> for Vec<u8> {
+    type Error = Error;
+
+    fn try_from(value: &Payload) -> Result<Self, Self::Error> {
+        let bytes = serde_ipld_dagcbor::to_vec(value)?;
+        Ok(bytes)
     }
 }
 
@@ -157,6 +111,6 @@ pub enum Error {
     Exp,
     #[error("Invalid signature: {0}")]
     Ed25519(#[from] ed25519::Error),
-    #[error("Error encoding to dag-json: {0}")]
-    DagJsonEncode(#[from] serde_ipld_dagjson::EncodeError),
+    #[error("dag-cbor encode error: {0}")]
+    CborEncodeError(#[from] serde_ipld_dagcbor::EncodeError<TryReserveError>),
 }
