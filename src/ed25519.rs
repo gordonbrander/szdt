@@ -1,8 +1,5 @@
-pub use ed25519_dalek::SecretKey;
-use ed25519_dalek::{
-    self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, Signature, Signer, SigningKey, Verifier,
-    VerifyingKey,
-};
+use ed25519_dalek::{self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, Signature, Signer, Verifier};
+pub use ed25519_dalek::{SecretKey, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use thiserror::Error;
 
@@ -40,10 +37,10 @@ pub fn sign(bytes: &[u8], secret_key: &SecretKey) -> SignatureBytes {
     signing_key.sign(&bytes).to_bytes()
 }
 
-/// Generate a new private key
-pub fn generate_private_key() -> SecretKey {
+/// Generate a new signing key
+pub fn generate_signing_key() -> SigningKey {
     let mut csprng = OsRng;
-    SigningKey::generate(&mut csprng).to_bytes()
+    SigningKey::generate(&mut csprng)
 }
 
 /// Convert a Vec<u8> to PrivateKey.
@@ -115,10 +112,11 @@ mod tests {
     #[test]
     fn test_key_generation_and_signing() {
         // Generate a private key
-        let secret_key = generate_private_key();
+        let signing_key = generate_signing_key();
+        let secret_key = signing_key.to_bytes();
 
         // Get the corresponding public key
-        let public_key = get_public_key(&secret_key);
+        let public_key = signing_key.verifying_key().to_bytes();
 
         // Create a message and sign it
         let message = b"test message".to_vec();

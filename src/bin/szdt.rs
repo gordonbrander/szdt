@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use szdt::base58btc;
 use szdt::car::{CarBlock, CarHeader, CarReader, CarWriter};
-use szdt::ed25519::generate_private_key;
+use szdt::ed25519::generate_signing_key;
 use szdt::file::walk_files;
 
 #[derive(Parser)]
@@ -97,8 +97,8 @@ fn unarchive(file_path: PathBuf) {
 }
 
 fn genkey() {
-    let key = generate_private_key();
-    let encoded_key = base58btc::encode(key);
+    let secret_key = generate_signing_key().to_bytes();
+    let encoded_key = base58btc::encode(secret_key);
     println!("{}", encoded_key);
 }
 
