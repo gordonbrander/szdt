@@ -83,18 +83,12 @@ pub fn verify(
     let verifying_key = VerifyingKey::from_bytes(public_key)?;
     let signature = Signature::from_bytes(signature_bytes);
     // Verify the signature
-    match verifying_key.verify(bytes, &signature) {
-        Ok(()) => Ok(()),
-        Err(_) => Err(Error::SignatureVerificationError(
-            "Signature didn't verify".to_string(),
-        )),
-    }
+    verifying_key.verify(bytes, &signature)?;
+    Ok(())
 }
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Signature verification error: {0}")]
-    SignatureVerificationError(String),
     #[error("Ed25519 error: {0}")]
     Ed25519Error(#[from] ed25519_dalek::ed25519::Error),
     #[error("Invalid public key: {0}")]
