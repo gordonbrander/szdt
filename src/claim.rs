@@ -203,3 +203,23 @@ pub enum Error {
     #[error("Claim expired")]
     Exp,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_sign_and_validate() {
+        // Generate a key pair for testing
+        let signing_key = ed25519::generate_signing_key();
+
+        // Build and sign a claim
+        let claim = Builder::new(&signing_key.as_bytes().as_slice())
+            .unwrap()
+            .sign()
+            .unwrap();
+
+        // Validate the claim
+        claim.validate(None).unwrap();
+    }
+}
