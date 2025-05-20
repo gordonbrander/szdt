@@ -70,3 +70,26 @@ pub enum Error {
     #[error("CBOR encode error: {0}")]
     CborEncode(#[from] serde_ipld_dagcbor::EncodeError<TryReserveError>),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_try_from_archive_to_cid() {
+        let mut archive = Archive::new();
+
+        // Create a mock file entry
+        let link = Link {
+            content: Cid::try_from("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")
+                .unwrap(),
+            location: Vec::new(),
+        };
+
+        archive.files.insert("test-file".to_string(), link);
+
+        // Convert archive to CID
+        let cid = Cid::try_from(archive).unwrap();
+        assert!(cid.to_string().starts_with("bafy"));
+    }
+}
