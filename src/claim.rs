@@ -1,6 +1,8 @@
-use crate::ed25519;
-use crate::{did::DidKey, util::now_epoch_secs};
+use crate::did;
+use crate::ed25519::{self, Signer, to_secret_key};
+use crate::{did::DidKey, util::now};
 use cid::Cid;
+use ed25519_dalek::SigningKey;
 use serde::{Deserialize, Serialize};
 use std::collections::TryReserveError;
 use thiserror::Error;
@@ -55,7 +57,7 @@ impl Claim {
     /// Is claim expired?
     pub fn is_expired(&self, now_time: Option<u64>) -> bool {
         match self.payload.exp {
-            Some(exp) => exp < now_time.unwrap_or_else(now_epoch_secs),
+            Some(exp) => exp < now_time.unwrap_or_else(now),
             None => false,
         }
     }
@@ -63,9 +65,79 @@ impl Claim {
     /// Is claim too early?
     pub fn is_too_early(&self, now_time: Option<u64>) -> bool {
         match self.payload.nbf {
-            Some(nbf) => nbf > now_time.unwrap_or_else(now_epoch_secs),
+            Some(nbf) => nbf > now_time.unwrap_or_else(now),
             None => false,
         }
+    }
+}
+
+/// Build a claim
+#[derive(Clone, Debug)]
+pub struct Builder {
+    /// Issuer (DID)
+    signing_key: SigningKey,
+    /// Issued at (UNIX timestamp, seconds)
+    iat: u64,
+    /// Not valid before (UNIX timestamp, seconds)
+    nbf: Option<u64>,
+    /// Expiration time (UNIX timestamp, seconds)
+    exp: Option<u64>,
+    /// Assertions
+    ast: Vec<Assertion>,
+}
+
+impl Builder {
+    /// Build a claim, starting with the bytes of your secret key.
+    pub fn new(secret_key: &[u8]) -> Result<Self, Error> {
+        let signing_key = SigningKey::from_bytes(&to_secret_key(secret_key)?);
+        Ok(Self {
+            signing_key,
+            iat: now(),
+            nbf: Some(now()),
+            exp: None,
+            ast: Vec::new(),
+        })
+    }
+
+    pub fn iat(mut self, iat: u64) -> Self {
+        self.iat = iat;
+        self
+    }
+
+    pub fn nbf(mut self, nbf: u64) -> Self {
+        self.nbf = Some(nbf);
+        self
+    }
+
+    pub fn exp(mut self, exp: u64) -> Self {
+        self.exp = Some(exp);
+        self
+    }
+
+    pub fn ast(mut self, ast: Vec<Assertion>) -> Self {
+        self.ast = ast;
+        self
+    }
+
+    pub fn add_ast(mut self, ast: Assertion) -> Self {
+        self.ast.push(ast);
+        self
+    }
+
+    /// Sign and return the claim
+    pub fn sign(self) -> Result<Claim, Error> {
+        let pubkey = self.signing_key.as_bytes();
+        let did = DidKey::new(pubkey.as_slice())?;
+        let payload = Payload {
+            iss: did,
+            iat: self.iat,
+            nbf: self.nbf,
+            exp: self.exp,
+            ast: self.ast,
+        };
+        let payload_bytes: Vec<u8> = (&payload).try_into()?;
+        let signature = self.signing_key.sign(&payload_bytes).to_vec();
+        Ok(Claim { payload, signature })
     }
 }
 
@@ -82,6 +154,19 @@ pub struct Payload {
     pub exp: Option<u64>,
     /// Assertions
     pub ast: Vec<Assertion>,
+}
+
+impl Payload {
+    /// Create a new payload
+    pub fn new(iss: DidKey, iat: u64) -> Self {
+        Self {
+            iss,
+            iat,
+            nbf: None,
+            exp: None,
+            ast: Vec::new(),
+        }
+    }
 }
 
 impl TryFrom<&Payload> for Vec<u8> {
@@ -107,12 +192,14 @@ pub struct WitnessAssertion {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Claim is too early")]
-    Nbf,
-    #[error("Claim expired")]
-    Exp,
     #[error("Invalid signature: {0}")]
     Ed25519(#[from] ed25519::Error),
     #[error("dag-cbor encode error: {0}")]
     CborEncodeError(#[from] serde_ipld_dagcbor::EncodeError<TryReserveError>),
+    #[error("DID error: {0}")]
+    DidError(#[from] did::Error),
+    #[error("Claim is too early")]
+    Nbf,
+    #[error("Claim expired")]
+    Exp,
 }
