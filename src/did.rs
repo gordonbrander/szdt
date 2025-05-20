@@ -25,6 +25,12 @@ impl DidKey {
     }
 }
 
+impl std::fmt::Display for DidKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from(self))
+    }
+}
+
 impl TryFrom<&str> for DidKey {
     type Error = Error;
 
