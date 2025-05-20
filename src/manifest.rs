@@ -12,15 +12,22 @@ use url::Url;
 
 /// Archive manifest
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Archive {
+pub struct Manifest {
     files: BTreeMap<PathBuf, Link>,
 }
 
-impl Archive {
+impl Manifest {
     pub fn new() -> Self {
-        Archive {
+        Manifest {
             files: BTreeMap::new(),
         }
+    }
+
+    /// Create an archive from a directory
+    pub fn from_dir(dir: &Path) -> Result<Self, Error> {
+        let mut archive = Manifest::new();
+        archive.add_dir(dir)?;
+        Ok(archive)
     }
 
     /// Add a file entry by reading from the file system, generating a CID.
@@ -41,10 +48,10 @@ impl Archive {
     }
 }
 
-impl TryFrom<Archive> for Cid {
+impl TryFrom<Manifest> for Cid {
     type Error = Error;
 
-    fn try_from(value: Archive) -> Result<Self, Self::Error> {
+    fn try_from(value: Manifest) -> Result<Self, Self::Error> {
         let bytes = serde_ipld_dagcbor::to_vec(&value)?;
         let archive_cid = cid::read_into_cid_v1_cbor(&mut bytes.as_slice())?;
         Ok(archive_cid)
@@ -86,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_try_from_archive_to_cid() {
-        let mut archive = Archive::new();
+        let mut archive = Manifest::new();
 
         // Create a mock file entry
         let link = Link {

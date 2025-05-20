@@ -1,4 +1,3 @@
-pub mod archive;
 pub mod base58btc;
 pub mod byte_counter_reader;
 pub mod car;
@@ -9,6 +8,7 @@ pub mod did;
 pub mod ed25519;
 pub mod error;
 pub mod file;
+pub mod manifest;
 pub mod multiformats;
 pub mod multihash;
 pub mod util;
