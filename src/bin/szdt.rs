@@ -5,8 +5,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use szdt::base58btc;
 use szdt::car::{CarBlock, CarHeader, CarReader, CarWriter};
+use szdt::car_claim_header::CarClaimHeader;
+use szdt::claim::{self, Assertion, WitnessAssertion};
 use szdt::ed25519::generate_signing_key;
 use szdt::file::walk_files;
+use szdt::manifest::Manifest;
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -45,7 +48,7 @@ enum Commands {
     Genkey {},
 }
 
-fn archive(dir: PathBuf, _private_key: Option<String>) {
+fn archive(dir: PathBuf, secret_key: Option<String>) {
     let default_file_name = OsStr::new("archive");
 
     let file_name =
@@ -53,11 +56,40 @@ fn archive(dir: PathBuf, _private_key: Option<String>) {
 
     println!("Writing archive: {}", file_name.display());
 
+    let manifest = Manifest::from_dir(&dir).expect("Unable to create archive");
+
+    // Create a new CarBlock for the manifest.
+    // We'll sign over its CID.
+    let manifest_block =
+        CarBlock::from_serializable(&manifest).expect("Unable to generate CID from manifest");
+
+    let claims = match secret_key {
+        Some(secret_key) => {
+            let secret_key_bytes =
+                base58btc::decode(&secret_key).expect("Secret key base encoding is invalid");
+
+            let witness_claim = claim::Builder::new(&secret_key_bytes)
+                .expect("Unable to build claim")
+                .add_ast(Assertion::Witness(WitnessAssertion {
+                    cid: manifest_block.cid().clone(),
+                }))
+                .sign()
+                .expect("Unable to sign claim");
+
+            vec![witness_claim]
+        }
+        None => vec![],
+    };
+
+    let header = CarClaimHeader::new(vec![manifest_block.cid().clone()], claims);
+
     let car_file = fs::File::create(&file_name).expect("Failed to create archive file");
-
-    let header = CarHeader::new_v1();
-
     let mut car = CarWriter::new(car_file, &header).expect("Should be able to create car");
+
+    // Write manifest block first
+    manifest_block
+        .write_into(&mut car)
+        .expect("Unable to write manifest to CAR");
 
     for path in walk_files(&dir).expect("Directory should be readable") {
         let body = fs::read(&path).expect("Path should be readable");
