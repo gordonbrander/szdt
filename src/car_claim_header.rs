@@ -10,9 +10,9 @@ pub struct CarClaimHeader {
 }
 
 impl CarClaimHeader {
-    pub fn new(version: u64, roots: Vec<Cid>, claims: Vec<Claim>) -> Self {
+    pub fn new(roots: Vec<Cid>, claims: Vec<Claim>) -> Self {
         CarClaimHeader {
-            version,
+            version: 1,
             roots,
             claims,
         }
