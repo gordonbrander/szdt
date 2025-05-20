@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::TryReserveError;
 use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use url::Url;
@@ -26,11 +27,7 @@ impl Archive {
     /// Uses file path (relative to working directory) as the display name.
     pub fn add_file(&mut self, path: &Path) -> Result<(), Error> {
         let mut file = File::open(path)?;
-        let cid = read_into_cid_v1_raw(&mut file)?;
-        let link = Link {
-            content: cid,
-            location: Vec::new(),
-        };
+        let link = Link::read_from(&mut file)?;
         self.files.insert(path.to_owned(), link);
         Ok(())
     }
@@ -56,8 +53,21 @@ impl TryFrom<Archive> for Cid {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Link {
-    content: Cid,
-    location: Vec<Url>,
+    pub content: Cid,
+    pub location: Vec<Url>,
+}
+
+impl Link {
+    pub fn new(content: Cid, location: Vec<Url>) -> Self {
+        Link { content, location }
+    }
+
+    /// Read link from reader
+    pub fn read_from<R: Read>(reader: &mut R) -> Result<Self, Error> {
+        let cid = read_into_cid_v1_raw(reader)?;
+        let link = Link::new(cid, Vec::new());
+        Ok(link)
+    }
 }
 
 #[derive(Debug, Error)]
