@@ -56,12 +56,14 @@ fn archive(dir: PathBuf, secret_key: Option<String>) {
 
     println!("Writing archive: {}", file_name.display());
 
-    let manifest = Manifest::from_dir(&dir).expect("Unable to create archive");
+    let manifest = Manifest::from_dir(&dir).expect("Unable to create manifest");
 
     // Create a new CarBlock for the manifest.
     // We'll sign over its CID.
     let manifest_block =
         CarBlock::from_serializable(&manifest).expect("Unable to generate CID from manifest");
+
+    println!("manifest -> {}", manifest_block.cid());
 
     let claims = match secret_key {
         Some(secret_key) => {
