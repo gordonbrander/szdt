@@ -1,7 +1,9 @@
 use crate::cid::{self, read_into_cid_v1_raw};
+use crate::file::walk_files;
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::collections::TryReserveError;
 use std::fs::File;
 use std::path::Path;
 use thiserror::Error;
@@ -14,8 +16,10 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn new(files: BTreeMap<String, Link>) -> Self {
-        Archive { files }
+    pub fn new() -> Self {
+        Archive {
+            files: BTreeMap::new(),
+        }
     }
 
     /// Add a file entry by reading from the file system, generating a CID.
@@ -31,6 +35,24 @@ impl Archive {
         self.files.insert(dn, link);
         Ok(())
     }
+
+    /// Add all files in a directory (recursive)
+    pub fn add_dir(&mut self, dir: &Path) -> Result<(), Error> {
+        for path in walk_files(dir)? {
+            self.add_file(&path)?;
+        }
+        Ok(())
+    }
+}
+
+impl TryFrom<Archive> for Cid {
+    type Error = Error;
+
+    fn try_from(value: Archive) -> Result<Self, Self::Error> {
+        let bytes = serde_ipld_dagcbor::to_vec(&value)?;
+        let archive_cid = cid::read_into_cid_v1_cbor(&mut bytes.as_slice())?;
+        Ok(archive_cid)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,4 +67,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("CID error: {0}")]
     Cid(#[from] cid::Error),
+    #[error("CBOR encode error: {0}")]
+    CborEncode(#[from] serde_ipld_dagcbor::EncodeError<TryReserveError>),
 }
