@@ -4,9 +4,9 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use szdt::base58btc;
-use szdt::car::{CarBlock, CarHeader, CarReader, CarWriter};
+use szdt::car::{CarBlock, CarReader, CarWriter};
 use szdt::car_claim_header::CarClaimHeader;
-use szdt::claim::{self, Assertion, WitnessAssertion};
+use szdt::claim::{self, Assertion, Claim, WitnessAssertion};
 use szdt::ed25519::generate_signing_key;
 use szdt::file::walk_files;
 use szdt::manifest::Manifest;
@@ -27,6 +27,13 @@ enum Commands {
         #[arg(help = "Archive file")]
         #[arg(value_name = "FILE")]
         file: PathBuf,
+        #[arg(
+            value_name = "DIR",
+            short,
+            long,
+            help = "Directory to unpack archive into. Defaults to archive file name."
+        )]
+        dir: Option<PathBuf>,
     },
 
     #[command(about = "Create a .car archive from a folder full of files")]
@@ -108,16 +115,44 @@ fn archive(dir: PathBuf, secret_key: Option<String>) {
     println!("Archive created: {}", file_name.display());
 }
 
-fn unarchive(file_path: PathBuf) {
+fn unarchive(file_path: PathBuf, dir: Option<PathBuf>) {
     let file = fs::File::open(&file_path).expect("Should be able to open file");
-    let reader: CarReader<_, CarHeader> =
+
+    let reader: CarReader<_, CarClaimHeader> =
         CarReader::read_from(file).expect("Should be able to read car file");
 
+    let header = reader.header();
+
+    let validated_claims: Vec<Claim> = header
+        .claims
+        .iter()
+        .filter(|claim| {
+            let result = claim.validate(None);
+            if let Err(err) = &result {
+                eprintln!("Claim error: {}", err);
+            }
+            result.is_ok()
+        })
+        .map(|claim| claim.clone())
+        .collect();
+
+    println!(
+        "Validated {} of {} claims",
+        validated_claims.len(),
+        header.claims.len()
+    );
+    for claim in validated_claims {
+        println!("{}", claim.payload().iss);
+    }
+
     // Create a folder named after the file path
-    let archive_dir: PathBuf = file_path
-        .file_stem()
-        .map(|p| p.into())
-        .unwrap_or("archive".into());
+    let archive_dir = match dir {
+        Some(dir) => dir,
+        None => file_path
+            .file_stem()
+            .map(|p| p.into())
+            .unwrap_or("archive".into()),
+    };
 
     fs::create_dir(&archive_dir).expect("Should be able to create directory");
 
@@ -141,7 +176,7 @@ fn main() {
     let cli = Cli::parse();
     match cli.command {
         Commands::Archive { dir, privkey } => archive(dir, privkey),
-        Commands::Unarchive { file } => unarchive(file),
+        Commands::Unarchive { file, dir } => unarchive(file, dir),
         Commands::Genkey {} => genkey(),
     }
 }
