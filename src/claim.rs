@@ -1,4 +1,4 @@
-use crate::ed25519::{self, SignatureBytes};
+use crate::ed25519;
 use crate::{did::DidKey, util::now_epoch_secs};
 use cid::Cid;
 use serde::{Deserialize, Serialize};
@@ -6,19 +6,20 @@ use std::collections::TryReserveError;
 use thiserror::Error;
 
 /// An SZDT Claim.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Claim {
     payload: Payload,
-    signature: ed25519::SignatureBytes,
+    signature: Vec<u8>,
 }
 
 impl Claim {
-    pub fn new(payload: Payload, signature: ed25519::SignatureBytes) -> Self {
+    pub fn new(payload: Payload, signature: Vec<u8>) -> Self {
         Self { payload, signature }
     }
 
     pub fn sign(payload: Payload, secret_key: &ed25519::SecretKey) -> Result<Self, Error> {
         let payload_bytes: Vec<u8> = (&payload).try_into()?;
-        let signature = ed25519::sign(&payload_bytes, &secret_key);
+        let signature = ed25519::sign(&payload_bytes, &secret_key).to_vec();
         Ok(Self::new(payload, signature))
     }
 
@@ -26,7 +27,7 @@ impl Claim {
         &self.payload
     }
 
-    pub fn signature(&self) -> &SignatureBytes {
+    pub fn signature(&self) -> &Vec<u8> {
         &self.signature
     }
 
@@ -46,7 +47,8 @@ impl Claim {
     pub fn check_signature(&self) -> Result<(), Error> {
         let public_key = self.payload.iss.pubkey();
         let payload_bytes = self.payload().try_into()?;
-        let result = ed25519::verify(&payload_bytes, &self.signature, public_key)?;
+        let signature_bytes = ed25519::to_signature_bytes(&self.signature())?;
+        let result = ed25519::verify(&payload_bytes, &signature_bytes, public_key)?;
         return Ok(result);
     }
 
@@ -68,7 +70,7 @@ impl Claim {
 }
 
 /// A signed claim
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct Payload {
     /// Issuer (DID)
     pub iss: DidKey,
@@ -94,12 +96,12 @@ impl TryFrom<&Payload> for Vec<u8> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Assertion {
-    #[serde(rename = "authority")]
-    Authority(AuthorityAssertion),
+    #[serde(rename = "witness")]
+    Witness(WitnessAssertion),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct AuthorityAssertion {
+pub struct WitnessAssertion {
     pub cid: Cid,
 }
 

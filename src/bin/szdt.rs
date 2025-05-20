@@ -47,6 +47,7 @@ enum Commands {
 
 fn archive(dir: PathBuf, _private_key: Option<String>) {
     let default_file_name = OsStr::new("archive");
+
     let file_name =
         PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("car");
 

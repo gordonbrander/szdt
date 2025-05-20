@@ -1,6 +1,8 @@
+pub mod archive;
 pub mod base58btc;
 pub mod byte_counter_reader;
 pub mod car;
+pub mod car_claim_header;
 pub mod cid;
 pub mod claim;
 pub mod did;

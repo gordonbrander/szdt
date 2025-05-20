@@ -16,7 +16,7 @@ pub struct DidKey(ed25519::PublicKey);
 
 impl DidKey {
     pub fn new(pubkey_bytes: &[u8]) -> Result<Self, Error> {
-        let pubkey = ed25519::slice_to_public_key(pubkey_bytes)?;
+        let pubkey = ed25519::to_public_key(pubkey_bytes)?;
         Ok(DidKey(pubkey))
     }
 
