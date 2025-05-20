@@ -5,14 +5,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::TryReserveError;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 use url::Url;
 
 /// Archive manifest
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Archive {
-    files: BTreeMap<String, Link>,
+    files: BTreeMap<PathBuf, Link>,
 }
 
 impl Archive {
@@ -27,12 +27,11 @@ impl Archive {
     pub fn add_file(&mut self, path: &Path) -> Result<(), Error> {
         let mut file = File::open(path)?;
         let cid = read_into_cid_v1_raw(&mut file)?;
-        let dn = path.to_string_lossy().to_string();
         let link = Link {
             content: cid,
             location: Vec::new(),
         };
-        self.files.insert(dn, link);
+        self.files.insert(path.to_owned(), link);
         Ok(())
     }
 
@@ -86,7 +85,7 @@ mod tests {
             location: Vec::new(),
         };
 
-        archive.files.insert("test-file".to_string(), link);
+        archive.files.insert("test-file".into(), link);
 
         // Convert archive to CID
         let cid = Cid::try_from(archive).unwrap();
