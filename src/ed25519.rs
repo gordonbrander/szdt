@@ -1,6 +1,5 @@
-pub use ed25519_dalek::SecretKey;
 use ed25519_dalek::{
-    self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, Signature, Signer, SigningKey, Verifier,
+    self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, SecretKey, Signature, Signer, SigningKey, Verifier,
     VerifyingKey,
 };
 use rand::rngs::OsRng;
@@ -9,16 +8,83 @@ use thiserror::Error;
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 pub type SignatureBytes = [u8; 64];
 
-/// Get publick key from secret key
-pub fn get_public_key(secret_key: &SecretKey) -> PublicKey {
-    SigningKey::from_bytes(secret_key)
-        .verifying_key()
-        .to_bytes()
+/// Wraps ed25519 key material, allowing you to sign and verify content
+#[derive(Debug, Clone)]
+pub struct Ed25519KeyMaterial {
+    public_key: PublicKey,
+    private_key: Option<SecretKey>,
+}
+
+impl Ed25519KeyMaterial {
+    /// Initialize from private key bytes
+    pub fn try_from_private_key(privkey: &[u8]) -> Result<Self, Error> {
+        let secret_key = to_secret_key(privkey)?;
+        let signing_key = SigningKey::from_bytes(&secret_key);
+        Ok(Self {
+            public_key: signing_key.verifying_key().to_bytes(),
+            private_key: Some(signing_key.to_bytes()),
+        })
+    }
+
+    /// Construct key material from a publick key, without a private key
+    pub fn try_from_public_key(pubkey: &[u8]) -> Result<Self, Error> {
+        let public_key = to_public_key(pubkey)?;
+        Ok(Self {
+            public_key,
+            private_key: None,
+        })
+    }
+
+    /// Get the public key portion
+    pub fn public_key(&self) -> Vec<u8> {
+        self.public_key.to_vec()
+    }
+
+    /// Sign payload, returning signature bytes
+    pub fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
+        match &self.private_key {
+            Some(private_key) => {
+                let signing_key = SigningKey::from_bytes(private_key);
+                Ok(signing_key.sign(payload).to_bytes().to_vec())
+            }
+            None => Err(Error::SigningError(
+                "Can't sign payload. No private key.".to_string(),
+            )),
+        }
+    }
+
+    /// Verify signature
+    pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
+        let signature = Signature::from_slice(signature)?;
+        let verifying_key = VerifyingKey::from_bytes(&self.public_key)?;
+        verifying_key.verify(payload, &signature)?;
+        Ok(())
+    }
+}
+
+impl From<SigningKey> for Ed25519KeyMaterial {
+    fn from(signing_key: SigningKey) -> Self {
+        Self {
+            public_key: signing_key.verifying_key().to_bytes(),
+            private_key: Some(signing_key.to_bytes()),
+        }
+    }
+}
+
+/// Generate a new signing keypair.
+/// Returns a tuple of `(pubkey, privkey)`.
+pub fn generate_keypair() -> (Vec<u8>, Vec<u8>) {
+    let mut csprng = OsRng;
+    let signing_key = SigningKey::generate(&mut csprng);
+    (
+        signing_key.verifying_key().to_bytes().to_vec(),
+        signing_key.to_bytes().to_vec(),
+    )
 }
 
 /// Convert a Vec<u8> to PublicKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn slice_to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
+pub fn to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
     if bytes.len() != PUBLIC_KEY_LENGTH {
         return Err(Error::InvalidPublicKey(format!(
             "Public key must be {} bytes, got {}",
@@ -32,25 +98,11 @@ pub fn slice_to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
     Ok(public_key)
 }
 
-/// Sign bytes with a private key.
-/// Returns signature bytes.
-pub fn sign(bytes: &Vec<u8>, secret_key: &SecretKey) -> SignatureBytes {
-    // Generate a keypair
-    let signing_key = SigningKey::from_bytes(secret_key);
-    signing_key.sign(&bytes).to_bytes()
-}
-
-/// Generate a new private key
-pub fn generate_private_key() -> SecretKey {
-    let mut csprng = OsRng;
-    SigningKey::generate(&mut csprng).to_bytes()
-}
-
 /// Convert a Vec<u8> to PrivateKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey, Error> {
+fn to_secret_key(bytes: &[u8]) -> Result<SecretKey, Error> {
     if bytes.len() != SECRET_KEY_LENGTH {
-        return Err(Error::InvalidSecretKey(format!(
+        return Err(Error::InvalidPrivateKey(format!(
             "Private key must be {} bytes, got {}",
             SECRET_KEY_LENGTH,
             bytes.len()
@@ -62,48 +114,16 @@ pub fn vec_to_private_key(bytes: &Vec<u8>) -> Result<SecretKey, Error> {
     Ok(private_key)
 }
 
-/// Convert a Vec<u8> to SignatureBytes.
-/// Returns an error if the input is not exactly 64 bytes.
-pub fn slice_to_signature(bytes: &[u8]) -> Result<SignatureBytes, Error> {
-    if bytes.len() != 64 {
-        return Err(Error::InvalidSignature(format!(
-            "Signature must be 64 bytes, got {}",
-            bytes.len()
-        )));
-    }
-
-    let mut signature = [0u8; 64];
-    signature.copy_from_slice(bytes);
-    Ok(signature)
-}
-
-/// Verify bytes with signature and public key.
-pub fn verify(
-    bytes: &Vec<u8>,
-    signature_bytes: &SignatureBytes,
-    public_key: &PublicKey,
-) -> Result<(), Error> {
-    let verifying_key = VerifyingKey::from_bytes(public_key)?;
-    let signature = Signature::from_bytes(signature_bytes);
-    // Verify the signature
-    match verifying_key.verify(bytes, &signature) {
-        Ok(()) => Ok(()),
-        Err(_) => Err(Error::SignatureVerificationError(
-            "Signature didn't verify".to_string(),
-        )),
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Signature verification error: {0}")]
-    SignatureVerificationError(String),
     #[error("Ed25519 error: {0}")]
     Ed25519Error(#[from] ed25519_dalek::ed25519::Error),
     #[error("Invalid public key: {0}")]
     InvalidPublicKey(String),
-    #[error("Invalid secret key: {0}")]
-    InvalidSecretKey(String),
+    #[error("Invalid private key: {0}")]
+    InvalidPrivateKey(String),
+    #[error("Can't sign payload: {0}")]
+    SigningError(String),
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),
 }
@@ -113,24 +133,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_key_generation_and_signing() {
-        // Generate a private key
-        let secret_key = generate_private_key();
+    fn test_ed25519_key_material_roundtrip() {
+        // Generate a signing key
+        let (pubkey, privkey) = generate_keypair();
 
-        // Get the corresponding public key
-        let public_key = get_public_key(&secret_key);
+        // Create Ed25519KeyMaterial from the signing key
+        let key_material = Ed25519KeyMaterial::try_from_private_key(&privkey).unwrap();
 
-        // Create a message and sign it
-        let message = b"test message".to_vec();
-        let signature = sign(&message, &secret_key);
+        // Test signing and verification
+        let message = b"test message for roundtrip verification";
+        let signature = key_material.sign(message).unwrap();
 
-        // Verify the signature
-        let result = verify(&message, &signature, &public_key);
+        let key_material_2 = Ed25519KeyMaterial::try_from_public_key(&pubkey).unwrap();
+
+        // Verify using the same key material
+        let result = key_material_2.verify(message, &signature);
         assert!(result.is_ok());
 
         // Try to verify with a different message
         let wrong_message = b"wrong message".to_vec();
-        let result = verify(&wrong_message, &signature, &public_key);
+        let result = key_material_2.verify(&wrong_message, &signature);
         assert!(result.is_err());
     }
 
@@ -138,12 +160,12 @@ mod tests {
     fn test_vec_to_public_key() {
         // Valid case
         let valid_bytes = vec![0u8; PUBLIC_KEY_LENGTH];
-        let result = slice_to_public_key(&valid_bytes);
+        let result = to_public_key(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; PUBLIC_KEY_LENGTH - 1];
-        let result = slice_to_public_key(&invalid_bytes);
+        let result = to_public_key(&invalid_bytes);
         assert!(result.is_err());
     }
 
@@ -151,25 +173,12 @@ mod tests {
     fn test_vec_to_private_key() {
         // Valid case
         let valid_bytes = vec![0u8; SECRET_KEY_LENGTH];
-        let result = vec_to_private_key(&valid_bytes);
+        let result = to_secret_key(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; SECRET_KEY_LENGTH - 1];
-        let result = vec_to_private_key(&invalid_bytes);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_vec_to_signature() {
-        // Valid case
-        let valid_bytes = vec![0u8; 64];
-        let result = slice_to_signature(&valid_bytes);
-        assert!(result.is_ok());
-
-        // Invalid case - wrong length
-        let invalid_bytes = vec![0u8; 63];
-        let result = slice_to_signature(&invalid_bytes);
+        let result = to_secret_key(&invalid_bytes);
         assert!(result.is_err());
     }
 }
