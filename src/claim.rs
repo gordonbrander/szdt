@@ -41,7 +41,7 @@ impl Claim {
     /// Check if signature is valid for claim
     pub fn check_signature(&self) -> Result<(), Error> {
         let public_key = self.payload.iss.pubkey();
-        let key_material = Ed25519KeyMaterial::try_from_pubkey(public_key)?;
+        let key_material = Ed25519KeyMaterial::try_from_public_key(public_key)?;
         let payload_bytes = Vec::try_from(self.payload())?;
         let result = key_material.verify(&payload_bytes, &self.signature())?;
         return Ok(result);
@@ -82,7 +82,7 @@ pub struct Builder {
 impl Builder {
     /// Build a claim, starting with the bytes of your secret key.
     pub fn new(private_key: &[u8]) -> Result<Self, Error> {
-        let key_material = Ed25519KeyMaterial::try_from_privkey(private_key)?;
+        let key_material = Ed25519KeyMaterial::try_from_private_key(private_key)?;
         Ok(Self {
             key_material,
             iat: now(),
@@ -119,7 +119,7 @@ impl Builder {
 
     /// Sign and return the claim
     pub fn sign(self) -> Result<Claim, Error> {
-        let pubkey = self.key_material.pubkey();
+        let pubkey = self.key_material.public_key();
         let did = DidKey::new(&pubkey)?;
         let payload = Payload {
             iss: did,

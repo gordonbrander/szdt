@@ -10,35 +10,41 @@ pub type SignatureBytes = [u8; 64];
 
 /// Wraps ed25519 key material, allowing you to sign and verify content
 #[derive(Debug, Clone)]
-pub struct Ed25519KeyMaterial(PublicKey, Option<SecretKey>);
+pub struct Ed25519KeyMaterial {
+    public_key: PublicKey,
+    private_key: Option<SecretKey>,
+}
 
 impl Ed25519KeyMaterial {
     /// Initialize from private key bytes
-    pub fn try_from_privkey(privkey: &[u8]) -> Result<Self, Error> {
+    pub fn try_from_private_key(privkey: &[u8]) -> Result<Self, Error> {
         let secret_key = to_secret_key(privkey)?;
         let signing_key = SigningKey::from_bytes(&secret_key);
-        Ok(Self(
-            signing_key.verifying_key().to_bytes(),
-            Some(signing_key.to_bytes()),
-        ))
+        Ok(Self {
+            public_key: signing_key.verifying_key().to_bytes(),
+            private_key: Some(signing_key.to_bytes()),
+        })
     }
 
     /// Construct key material from a publick key, without a private key
-    pub fn try_from_pubkey(pubkey: &[u8]) -> Result<Self, Error> {
+    pub fn try_from_public_key(pubkey: &[u8]) -> Result<Self, Error> {
         let public_key = to_public_key(pubkey)?;
-        Ok(Self(public_key, None))
+        Ok(Self {
+            public_key,
+            private_key: None,
+        })
     }
 
     /// Get the public key portion
-    pub fn pubkey(&self) -> Vec<u8> {
-        self.0.to_vec()
+    pub fn public_key(&self) -> Vec<u8> {
+        self.public_key.to_vec()
     }
 
     /// Sign payload, returning signature bytes
     pub fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
-        match &self.1 {
-            Some(secret_key) => {
-                let signing_key = SigningKey::from_bytes(secret_key);
+        match &self.private_key {
+            Some(private_key) => {
+                let signing_key = SigningKey::from_bytes(private_key);
                 Ok(signing_key.sign(payload).to_bytes().to_vec())
             }
             None => Err(Error::SigningError(
@@ -50,7 +56,7 @@ impl Ed25519KeyMaterial {
     /// Verify signature
     pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature = Signature::from_slice(signature)?;
-        let verifying_key = VerifyingKey::from_bytes(&self.0)?;
+        let verifying_key = VerifyingKey::from_bytes(&self.public_key)?;
         verifying_key.verify(payload, &signature)?;
         Ok(())
     }
@@ -58,10 +64,10 @@ impl Ed25519KeyMaterial {
 
 impl From<SigningKey> for Ed25519KeyMaterial {
     fn from(signing_key: SigningKey) -> Self {
-        Self(
-            signing_key.verifying_key().to_bytes(),
-            Some(signing_key.to_bytes()),
-        )
+        Self {
+            public_key: signing_key.verifying_key().to_bytes(),
+            private_key: Some(signing_key.to_bytes()),
+        }
     }
 }
 
@@ -132,13 +138,13 @@ mod tests {
         let (pubkey, privkey) = generate_keypair();
 
         // Create Ed25519KeyMaterial from the signing key
-        let key_material = Ed25519KeyMaterial::try_from_privkey(&privkey).unwrap();
+        let key_material = Ed25519KeyMaterial::try_from_private_key(&privkey).unwrap();
 
         // Test signing and verification
         let message = b"test message for roundtrip verification";
         let signature = key_material.sign(message).unwrap();
 
-        let key_material_2 = Ed25519KeyMaterial::try_from_pubkey(&pubkey).unwrap();
+        let key_material_2 = Ed25519KeyMaterial::try_from_public_key(&pubkey).unwrap();
 
         // Verify using the same key material
         let result = key_material_2.verify(message, &signature);
