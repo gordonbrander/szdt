@@ -1,8 +1,7 @@
 use crate::did;
-use crate::ed25519::{self, Signer, to_secret_key};
+use crate::ed25519::{self, Ed25519KeyMaterial};
 use crate::{did::DidKey, util::now};
 use cid::Cid;
-use ed25519_dalek::SigningKey;
 use serde::{Deserialize, Serialize};
 use std::collections::TryReserveError;
 use thiserror::Error;
@@ -17,12 +16,6 @@ pub struct Claim {
 impl Claim {
     pub fn new(payload: Payload, signature: Vec<u8>) -> Self {
         Self { payload, signature }
-    }
-
-    pub fn sign(payload: Payload, secret_key: &ed25519::SecretKey) -> Result<Self, Error> {
-        let payload_bytes: Vec<u8> = (&payload).try_into()?;
-        let signature = ed25519::sign(&payload_bytes, &secret_key).to_vec();
-        Ok(Self::new(payload, signature))
     }
 
     pub fn payload(&self) -> &Payload {
@@ -48,9 +41,9 @@ impl Claim {
     /// Check if signature is valid for claim
     pub fn check_signature(&self) -> Result<(), Error> {
         let public_key = self.payload.iss.pubkey();
-        let payload_bytes = self.payload().try_into()?;
-        let signature_bytes = ed25519::to_signature_bytes(&self.signature())?;
-        let result = ed25519::verify(&payload_bytes, &signature_bytes, public_key)?;
+        let key_material = Ed25519KeyMaterial::try_from_pubkey(public_key)?;
+        let payload_bytes = Vec::try_from(self.payload())?;
+        let result = key_material.verify(&payload_bytes, &self.signature())?;
         return Ok(result);
     }
 
@@ -75,7 +68,7 @@ impl Claim {
 #[derive(Clone, Debug)]
 pub struct Builder {
     /// Issuer (DID)
-    signing_key: SigningKey,
+    key_material: Ed25519KeyMaterial,
     /// Issued at (UNIX timestamp, seconds)
     iat: u64,
     /// Not valid before (UNIX timestamp, seconds)
@@ -88,10 +81,10 @@ pub struct Builder {
 
 impl Builder {
     /// Build a claim, starting with the bytes of your secret key.
-    pub fn new(secret_key: &[u8]) -> Result<Self, Error> {
-        let signing_key = SigningKey::from_bytes(&to_secret_key(secret_key)?);
+    pub fn new(private_key: &[u8]) -> Result<Self, Error> {
+        let key_material = Ed25519KeyMaterial::try_from_privkey(private_key)?;
         Ok(Self {
-            signing_key,
+            key_material,
             iat: now(),
             nbf: Some(now()),
             exp: None,
@@ -126,8 +119,8 @@ impl Builder {
 
     /// Sign and return the claim
     pub fn sign(self) -> Result<Claim, Error> {
-        let pubkey = self.signing_key.as_bytes();
-        let did = DidKey::new(pubkey.as_slice())?;
+        let pubkey = self.key_material.pubkey();
+        let did = DidKey::new(&pubkey)?;
         let payload = Payload {
             iss: did,
             iat: self.iat,
@@ -136,7 +129,7 @@ impl Builder {
             ast: self.ast,
         };
         let payload_bytes: Vec<u8> = (&payload).try_into()?;
-        let signature = self.signing_key.sign(&payload_bytes).to_vec();
+        let signature = self.key_material.sign(&payload_bytes)?;
         Ok(Claim { payload, signature })
     }
 }
@@ -211,13 +204,10 @@ mod tests {
     #[test]
     fn test_builder_sign_and_validate() {
         // Generate a key pair for testing
-        let signing_key = ed25519::generate_signing_key();
+        let (_, privkey) = ed25519::generate_keypair();
 
         // Build and sign a claim
-        let claim = Builder::new(&signing_key.as_bytes().as_slice())
-            .unwrap()
-            .sign()
-            .unwrap();
+        let claim = Builder::new(&privkey).unwrap().sign().unwrap();
 
         // Validate the claim
         claim.validate(None).unwrap();

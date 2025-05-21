@@ -7,7 +7,7 @@ use szdt::base58btc;
 use szdt::car::{CarBlock, CarReader, CarWriter};
 use szdt::car_claim_header::CarClaimHeader;
 use szdt::claim::{self, Assertion, Claim, WitnessAssertion};
-use szdt::ed25519::generate_signing_key;
+use szdt::ed25519::generate_keypair;
 use szdt::file::walk_files;
 use szdt::manifest::Manifest;
 
@@ -167,8 +167,8 @@ fn unarchive(file_path: PathBuf, dir: Option<PathBuf>) {
 }
 
 fn genkey() {
-    let secret_key = generate_signing_key().to_bytes();
-    let encoded_key = base58btc::encode(secret_key);
+    let (_, privkey) = generate_keypair();
+    let encoded_key = base58btc::encode(privkey);
     println!("{}", encoded_key);
 }
 
