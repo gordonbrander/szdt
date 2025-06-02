@@ -1,7 +1,6 @@
 use crate::did;
 use crate::ed25519::{self, Ed25519KeyMaterial};
 use crate::{did::DidKey, util::now};
-use cid::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::TryReserveError;
 use thiserror::Error;
@@ -80,9 +79,8 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Build a claim, starting with the bytes of your secret key.
-    pub fn new(private_key: &[u8]) -> Result<Self, Error> {
-        let key_material = Ed25519KeyMaterial::try_from_private_key(private_key)?;
+    /// Build a claim, starting with key material
+    pub fn new(key_material: Ed25519KeyMaterial) -> Result<Self, Error> {
         Ok(Self {
             key_material,
             iat: now(),
@@ -180,7 +178,7 @@ pub enum Assertion {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WitnessAssertion {
-    pub cid: Cid,
+    pub hash: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -205,9 +203,10 @@ mod tests {
     fn test_builder_sign_and_validate() {
         // Generate a key pair for testing
         let (_, privkey) = ed25519::generate_keypair();
+        let key_material = Ed25519KeyMaterial::try_from_private_key(&privkey).unwrap();
 
         // Build and sign a claim
-        let claim = Builder::new(&privkey).unwrap().sign().unwrap();
+        let claim = Builder::new(key_material).unwrap().sign().unwrap();
 
         // Validate the claim
         claim.validate(None).unwrap();

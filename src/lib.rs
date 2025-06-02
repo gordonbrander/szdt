@@ -1,3 +1,4 @@
+pub mod bao;
 pub mod base58btc;
 pub mod byte_counter_reader;
 pub mod car;

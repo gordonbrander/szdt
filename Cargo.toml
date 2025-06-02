@@ -8,6 +8,8 @@ name = "szdt"
 path = "src/bin/szdt.rs"
 
 [dependencies]
+bao = "0.13.1"
+blake3 = { version = "1.8.2", features = ["serde"] }
 bs58 = "0.5.1"
 cid = { version = "0.11.1", features = ["serde"] }
 clap = { version = "4.5.31", features = ["derive"] }
