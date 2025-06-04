@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use url::Url;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileEntry {
     /// Hash for file
     pub hash: Hash,
@@ -47,13 +47,13 @@ impl FileEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LinkEntry {
     hash: Hash,
     urls: Vec<Url>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Manifest {
     pub prev: Option<LinkEntry>,
     pub next: Option<Url>,
