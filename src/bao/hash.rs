@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Hash(blake3::Hash);
 
 impl Hash {
@@ -34,6 +34,12 @@ impl Hash {
     /// Bytes of the hash.
     pub fn as_bytes(&self) -> &[u8; 32] {
         self.0.as_bytes()
+    }
+}
+
+impl std::fmt::Display for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
