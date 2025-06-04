@@ -15,4 +15,6 @@ pub enum Error {
     Claim(#[from] claim::Error),
     #[error("Value error")]
     Value(String),
+    #[error("Manifest file entry missing for block")]
+    ManifestFileEntryMissing(String),
 }

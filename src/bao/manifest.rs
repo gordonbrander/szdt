@@ -1,6 +1,9 @@
+use super::error::Error;
 use super::hash::Hash;
 use crate::util::now;
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::Read;
 use std::path::PathBuf;
 use url::Url;
 
@@ -14,6 +17,23 @@ pub struct FileEntry {
     pub path: PathBuf,
     /// Content type of file
     pub content_type: Option<String>,
+}
+
+/// Read file entries from a list of paths
+pub fn read_file_entries<I>(paths: I) -> Result<Vec<FileEntry>, Error>
+where
+    I: Iterator<Item = PathBuf>,
+{
+    let mut entries: Vec<FileEntry> = Vec::new();
+    let mut buf = vec![];
+    for path in paths {
+        buf.truncate(0);
+        let mut file = File::open(&path)?;
+        let len = file.read_to_end(&mut buf)?;
+        let hash = Hash::new(&buf);
+        entries.push(FileEntry::new(hash, len as u64, path));
+    }
+    Ok(entries)
 }
 
 impl FileEntry {
@@ -49,5 +69,11 @@ impl Manifest {
             next,
             timestamp: now(),
         }
+    }
+
+    /// Serialize this to dag-cbor bytes suitable for signing
+    pub fn into_signing_bytes(&self) -> Result<Vec<u8>, Error> {
+        let bytes = serde_ipld_dagcbor::to_vec(self)?;
+        Ok(bytes)
     }
 }

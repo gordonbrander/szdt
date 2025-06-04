@@ -3,43 +3,23 @@ use super::claim_headers::ClaimHeaders;
 use super::error::Error;
 use super::hash::Hash;
 use super::hashseq::HashSeq;
-use super::manifest::{FileEntry, Manifest};
-use crate::claim::{self, Assertion, Claim, WitnessAssertion};
+use super::manifest::{Manifest, read_file_entries};
+use crate::claim::{self, Assertion, WitnessAssertion};
 use crate::ed25519::Ed25519KeyMaterial;
 use crate::file::walk_files;
-use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Headers {
-    pub claims: Vec<Claim>,
-    pub files: Vec<FileEntry>,
+pub struct ArchiveReceipt {
+    pub manifest: Manifest,
 }
 
-/// Read file entries from a list of paths
-pub fn read_file_entries<I>(paths: I) -> Result<Vec<FileEntry>, Error>
-where
-    I: Iterator<Item = PathBuf>,
-{
-    let mut entries: Vec<FileEntry> = Vec::new();
-    let mut buf = vec![];
-    for path in paths {
-        buf.truncate(0);
-        let mut file = File::open(&path)?;
-        let len = file.read_to_end(&mut buf)?;
-        let hash = Hash::new(&buf);
-        entries.push(FileEntry::new(hash, len as u64, path));
-    }
-    Ok(entries)
-}
-
-pub fn write_archive(
+/// Write an archive file by reading files from a directory
+pub fn archive_files(
     dir: &Path,
     archive_file: &Path,
     key_material: Ed25519KeyMaterial,
-) -> Result<(), Error> {
+) -> Result<ArchiveReceipt, Error> {
     let paths = walk_files(dir)?;
     let files = read_file_entries(paths.into_iter())?;
 
@@ -77,5 +57,7 @@ pub fn write_archive(
         archive_file.write_block(&bytes)?;
     }
 
-    Ok(())
+    Ok(ArchiveReceipt { manifest })
 }
+
+pub struct UnarchiveReceipt {}
