@@ -1,5 +1,4 @@
 use super::error::Error;
-use super::hash::Hash;
 use super::manifest::{self, Manifest, read_file_entries};
 use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
 use crate::ed25519_key_material::Ed25519KeyMaterial;
@@ -77,12 +76,9 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
 
     for file_entry in files {
         // There should be one block for each file
-        let bytes: Vec<u8> = match archive_reader.read_block() {
-            Ok(bytes) => bytes,
-            Err(err) => return Err(err),
-        };
+        let bytes: Vec<u8> = archive_reader.read_block()?;
         // Check integrity
-        let hash = Hash::new(&bytes);
+        let hash = bytes.into_link()?;
         if hash != file_entry.hash {
             return Err(Error::ArchiveIntegrityError(format!(
                 "File integrity error. Hash mismatch for file {}.\n\tExpected: {},\n\tGot: {}",
