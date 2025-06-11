@@ -49,4 +49,19 @@ impl<W: Write> CborSeqWriter<W> {
     pub fn into_inner(self) -> W {
         self.writer
     }
+
+    pub fn flush(&mut self) -> Result<(), Error> {
+        self.writer.flush()?;
+        Ok(())
+    }
+}
+
+impl<W: Write> Write for CborSeqWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.writer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
 }
