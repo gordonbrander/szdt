@@ -20,7 +20,7 @@ pub struct ArchiveReceipt {
 pub fn archive(
     dir: &Path,
     archive_file: &Path,
-    key_material: Ed25519KeyMaterial,
+    key_material: &Ed25519KeyMaterial,
 ) -> Result<ArchiveReceipt, Error> {
     let paths = walk_files(dir)?;
     let files = read_file_entries(paths.into_iter())?;
@@ -45,6 +45,8 @@ pub fn archive(
         let bytes = fs::read(&file.path)?;
         archive_writer.write_block(&bytes)?;
     }
+
+    archive_writer.flush()?;
 
     Ok(ArchiveReceipt {
         memo: signed_root_memo,
