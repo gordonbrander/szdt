@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
+/// Blake3 hash
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Hash(blake3::Hash);
 

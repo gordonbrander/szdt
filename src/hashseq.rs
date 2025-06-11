@@ -1,6 +1,5 @@
+use crate::hash::Hash;
 use thiserror::Error;
-
-use crate::bao::hash::Hash;
 
 pub struct HashSeq(Vec<u8>);
 

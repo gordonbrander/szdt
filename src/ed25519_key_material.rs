@@ -1,0 +1,105 @@
+use crate::did::DidKey;
+use crate::ed25519::{
+    PrivateKey, PublicKey, derive_public_key, into_private_key, into_public_key, sign, verify,
+};
+use crate::error::Error;
+
+/// Wraps ed25519 key material, allowing you to
+/// - sign and verify
+/// - get a DID corresponding to the public key
+#[derive(Debug, Clone)]
+pub struct Ed25519KeyMaterial {
+    public_key: PublicKey,
+    private_key: Option<PrivateKey>,
+}
+
+impl Ed25519KeyMaterial {
+    /// Initialize from private key bytes
+    pub fn try_from_private_key(private_key: &[u8]) -> Result<Self, Error> {
+        let private_key = into_private_key(private_key)?;
+        let public_key = derive_public_key(&private_key)?;
+        Ok(Self {
+            public_key: public_key,
+            private_key: Some(private_key),
+        })
+    }
+
+    /// Construct key material from a publick key, without a private key
+    pub fn try_from_public_key(pubkey: &[u8]) -> Result<Self, Error> {
+        let public_key = into_public_key(pubkey)?;
+        Ok(Self {
+            public_key,
+            private_key: None,
+        })
+    }
+
+    /// Get the public key portion
+    pub fn public_key(&self) -> Vec<u8> {
+        self.public_key.to_vec()
+    }
+
+    pub fn did(&self) -> Result<DidKey, Error> {
+        let public_key = self.public_key();
+        let did = DidKey::new(&public_key)?;
+        Ok(did)
+    }
+
+    /// Sign payload, returning signature bytes
+    pub fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
+        match &self.private_key {
+            Some(private_key) => {
+                let sig = sign(payload, private_key)?;
+                Ok(sig)
+            }
+            None => Err(Error::Signing(
+                "Can't sign payload. No private key.".to_string(),
+            )),
+        }
+    }
+
+    /// Verify signature
+    pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
+        verify(payload, signature, &self.public_key)?;
+        Ok(())
+    }
+}
+
+impl TryFrom<&DidKey> for Ed25519KeyMaterial {
+    type Error = Error;
+
+    fn try_from(did_key: &DidKey) -> Result<Self, Self::Error> {
+        let public_key = did_key.public_key();
+        let material = Self::try_from_public_key(public_key)?;
+        Ok(material)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ed25519::generate_keypair;
+
+    #[test]
+    fn test_ed25519_key_material_roundtrip() {
+        // Generate a signing key
+        let (pubkey, privkey) = generate_keypair();
+
+        // Create Ed25519KeyMaterial from the signing key
+        let key_material = Ed25519KeyMaterial::try_from_private_key(&privkey).unwrap();
+
+        // Test signing and verification
+        let message = b"test message for roundtrip verification";
+        let signature = key_material.sign(message).unwrap();
+
+        let key_material_2 = Ed25519KeyMaterial::try_from_public_key(&pubkey).unwrap();
+
+        // Verify using the same key material
+        let result = key_material_2.verify(message, &signature);
+        assert!(result.is_ok());
+
+        // Try to verify with a different message
+        let wrong_message = b"wrong message".to_vec();
+        let result = key_material_2.verify(&wrong_message, &signature);
+        assert!(result.is_err());
+    }
+}

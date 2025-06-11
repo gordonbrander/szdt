@@ -1,7 +1,10 @@
 use crate::base58btc;
 use crate::ed25519;
+use ed25519_dalek::PUBLIC_KEY_LENGTH;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 
 /// The multicodec prefix for ed25519 public key is 0xed.
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -12,15 +15,15 @@ const MULTICODEC_ED25519_PUB_PREFIX: u8 = 0xed;
 const DID_KEY_BASE58BTC_PREFIX: &str = "did:key:z";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DidKey(ed25519::PublicKey);
+pub struct DidKey(PublicKey);
 
 impl DidKey {
     pub fn new(pubkey_bytes: &[u8]) -> Result<Self, Error> {
-        let pubkey = ed25519::to_public_key(pubkey_bytes)?;
+        let pubkey = ed25519::into_public_key(pubkey_bytes)?;
         Ok(DidKey(pubkey))
     }
 
-    pub fn pubkey(&self) -> &ed25519::PublicKey {
+    pub fn public_key(&self) -> &ed25519::PublicKey {
         &self.0
     }
 }
