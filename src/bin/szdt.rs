@@ -1,15 +1,10 @@
 use clap::{Parser, Subcommand};
 use std::ffi::OsStr;
-use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use szdt::base58btc;
-use szdt::car::{CarBlock, CarReader, CarWriter};
-use szdt::car_claim_header::CarClaimHeader;
-use szdt::claim::{self, Assertion, Claim, WitnessAssertion};
 use szdt::ed25519::generate_keypair;
-use szdt::file::walk_files;
-use szdt::manifest::Manifest;
+use szdt::ed25519_key_material::Ed25519KeyMaterial;
+use szdt::szdt::{archive, unarchive};
 
 #[derive(Parser)]
 #[command(version = "0.0.1")]
@@ -48,103 +43,33 @@ enum Commands {
         )]
         #[arg(short, long)]
         #[arg(value_name = "KEY")]
-        privkey: Option<String>,
+        privkey: String,
     },
 
     #[command(about = "Generate a private key")]
     Genkey {},
 }
 
-fn archive(dir: PathBuf, secret_key: Option<String>) {
+fn archive_cmd(dir: PathBuf, private_key_base58: String) {
     let default_file_name = OsStr::new("archive");
 
     let file_name =
-        PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("car");
+        PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("szdt");
+
+    let private_key_bytes =
+        base58btc::decode(&private_key_base58).expect("Secret key base encoding is invalid");
+
+    let key_material = Ed25519KeyMaterial::try_from_private_key(&private_key_bytes)
+        .expect("Private key is not valid");
 
     println!("Writing archive: {}", file_name.display());
 
-    let manifest = Manifest::from_dir(&dir).expect("Unable to create manifest");
-
-    // Create a new CarBlock for the manifest.
-    // We'll sign over its CID.
-    let manifest_block =
-        CarBlock::from_serializable(&manifest).expect("Unable to generate CID from manifest");
-
-    println!("manifest -> {}", manifest_block.cid());
-
-    let claims = match secret_key {
-        Some(secret_key) => {
-            let secret_key_bytes =
-                base58btc::decode(&secret_key).expect("Secret key base encoding is invalid");
-
-            let witness_claim = claim::Builder::new(&secret_key_bytes)
-                .expect("Unable to build claim")
-                .add_ast(Assertion::Witness(WitnessAssertion {
-                    cid: manifest_block.cid().clone(),
-                }))
-                .sign()
-                .expect("Unable to sign claim");
-
-            vec![witness_claim]
-        }
-        None => vec![],
-    };
-
-    let header = CarClaimHeader::new(vec![manifest_block.cid().clone()], claims);
-
-    let car_file = fs::File::create(&file_name).expect("Failed to create archive file");
-    let mut car = CarWriter::new(car_file, &header).expect("Should be able to create car");
-
-    // Write manifest block first
-    manifest_block
-        .write_into(&mut car)
-        .expect("Unable to write manifest to CAR");
-
-    for path in walk_files(&dir).expect("Directory should be readable") {
-        let body = fs::read(&path).expect("Path should be readable");
-        let block = CarBlock::from_raw(body);
-        block
-            .write_into(&mut car)
-            .expect("Should be able to write block to car file");
-        println!("{} -> {}", &path.display(), block.cid());
-    }
-
-    car.flush()
-        .expect("Should be able to flush all writes to car file");
+    let _ = archive(&dir, &file_name, &key_material).expect("Unable to create archive");
 
     println!("Archive created: {}", file_name.display());
 }
 
-fn unarchive(file_path: PathBuf, dir: Option<PathBuf>) {
-    let file = fs::File::open(&file_path).expect("Should be able to open file");
-
-    let reader: CarReader<_, CarClaimHeader> =
-        CarReader::read_from(file).expect("Should be able to read car file");
-
-    let header = reader.header();
-
-    let validated_claims: Vec<Claim> = header
-        .claims
-        .iter()
-        .filter(|claim| {
-            let result = claim.validate(None);
-            if let Err(err) = &result {
-                eprintln!("Claim error: {}", err);
-            }
-            result.is_ok()
-        })
-        .map(|claim| claim.clone())
-        .collect();
-
-    println!(
-        "Validated {} of {} claims",
-        validated_claims.len(),
-        header.claims.len()
-    );
-    for claim in validated_claims {
-        println!("{}", claim.payload().iss);
-    }
-
+fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     // Create a folder named after the file path
     let archive_dir = match dir {
         Some(dir) => dir,
@@ -154,15 +79,8 @@ fn unarchive(file_path: PathBuf, dir: Option<PathBuf>) {
             .unwrap_or("archive".into()),
     };
 
-    fs::create_dir(&archive_dir).expect("Should be able to create directory");
+    unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
 
-    for block in reader {
-        let block = block.expect("Should be able to read block");
-        let path = archive_dir.join(block.cid().to_string());
-        let body = block.body();
-        fs::write(&path, body).expect("Should be able to write file");
-        println!("{} -> {}", block.cid(), &path.display());
-    }
     println!("Unpacked archive");
 }
 
@@ -175,8 +93,8 @@ fn genkey() {
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Archive { dir, privkey } => archive(dir, privkey),
-        Commands::Unarchive { file, dir } => unarchive(file, dir),
+        Commands::Archive { dir, privkey } => archive_cmd(dir, privkey),
+        Commands::Unarchive { file, dir } => unarchive_cmd(dir, file),
         Commands::Genkey {} => genkey(),
     }
 }
