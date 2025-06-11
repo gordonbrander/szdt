@@ -10,6 +10,7 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::Path;
 
+#[derive(Debug, Clone)]
 pub struct ArchiveReceipt {
     pub memo: SignedMemo,
     pub manifest: Manifest,
@@ -51,7 +52,11 @@ pub fn archive(
     })
 }
 
-pub struct UnarchiveReceipt {}
+#[derive(Debug, Clone)]
+pub struct UnarchiveReceipt {
+    pub memo: SignedMemo,
+    pub manifest: Manifest,
+}
 
 /// Unpack an archive into a directory
 pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceipt, Error> {
@@ -61,7 +66,7 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
     let now_time = now();
     let root_memo: SignedMemo = archive_reader.read_block()?;
     // Check if the root memo is valid (signature matches, etc)
-    let validated_memo = root_memo.validate(Some(now_time))?;
+    let validated_memo = root_memo.clone().validate(Some(now_time))?;
 
     let manifest: Manifest = archive_reader.read_block()?;
 
@@ -92,5 +97,8 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
         write_file_deep(&path, &bytes)?;
     }
 
-    Ok(UnarchiveReceipt {})
+    Ok(UnarchiveReceipt {
+        memo: root_memo,
+        manifest,
+    })
 }
