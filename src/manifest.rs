@@ -34,6 +34,9 @@ where
         buf.truncate(0);
         let mut file = File::open(&path)?;
         file.read_to_end(&mut buf)?;
+        // We serialize the file contents as CBOR bytes.
+        // This used to calculate the hash and length
+        // so it corresponds 1:1 with the CBOR sequence.
         let cbor_wrapped_bytes = serde_ipld_dagcbor::to_vec(&buf)?;
         let hash = Hash::new(&cbor_wrapped_bytes);
         entries.push(FileEntry::new(hash, cbor_wrapped_bytes.len() as u64, path));
