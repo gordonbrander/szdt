@@ -24,7 +24,7 @@ pub fn generate_keypair() -> (PublicKey, PrivateKey) {
 pub fn derive_public_key(private_key: &[u8]) -> Result<PublicKey, Error> {
     let private_key = into_private_key(private_key)?;
     let signing_key = SigningKey::from_bytes(&private_key);
-    let public_key = into_public_key(&signing_key.to_bytes())?;
+    let public_key = into_public_key(&signing_key.verifying_key().to_bytes())?;
     Ok(public_key)
 }
 
