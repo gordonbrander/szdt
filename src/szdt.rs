@@ -29,7 +29,7 @@ pub fn archive(
     let manifest = Manifest::new(files.clone());
 
     // Wrap manifest in a memo
-    let mut root_memo = Memo::new(key_material.did()?, manifest.into_link()?);
+    let mut root_memo = Memo::new(key_material.did(), manifest.into_link()?);
     root_memo.set_ctype(Some(manifest::CONTENT_TYPE.to_string()));
     // Sign the memo
     let signed_root_memo = root_memo.sign(&key_material)?;

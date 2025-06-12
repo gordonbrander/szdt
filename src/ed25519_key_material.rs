@@ -1,6 +1,7 @@
 use crate::did::DidKey;
 use crate::ed25519::{
-    PrivateKey, PublicKey, derive_public_key, into_private_key, into_public_key, sign, verify,
+    PrivateKey, PublicKey, derive_public_key, generate_keypair, into_private_key, into_public_key,
+    sign, verify,
 };
 use crate::error::Error;
 
@@ -14,6 +15,14 @@ pub struct Ed25519KeyMaterial {
 }
 
 impl Ed25519KeyMaterial {
+    pub fn generate() -> Self {
+        let (public_key, private_key) = generate_keypair();
+        Self {
+            public_key,
+            private_key: Some(private_key),
+        }
+    }
+
     /// Initialize from private key bytes
     pub fn try_from_private_key(private_key: &[u8]) -> Result<Self, Error> {
         let private_key = into_private_key(private_key)?;
@@ -38,10 +47,10 @@ impl Ed25519KeyMaterial {
         self.public_key.to_vec()
     }
 
-    pub fn did(&self) -> Result<DidKey, Error> {
+    pub fn did(&self) -> DidKey {
         let public_key = self.public_key();
-        let did = DidKey::new(&public_key)?;
-        Ok(did)
+        let did = DidKey::new(&public_key).expect("Should be valid public key");
+        did
     }
 
     /// Sign payload, returning signature bytes
@@ -61,6 +70,12 @@ impl Ed25519KeyMaterial {
     pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
         verify(payload, signature, &self.public_key)?;
         Ok(())
+    }
+}
+
+impl From<&Ed25519KeyMaterial> for DidKey {
+    fn from(key_material: &Ed25519KeyMaterial) -> Self {
+        key_material.did()
     }
 }
 
