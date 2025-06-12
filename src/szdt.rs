@@ -4,7 +4,7 @@ use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::file::{walk_files, write_file_deep};
 use crate::link::IntoLink;
-use crate::memo::{Memo, SignedMemo};
+use crate::memo::Memo;
 use crate::util::now;
 use std::fs::{self, File};
 use std::io::BufReader;
@@ -12,7 +12,7 @@ use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct ArchiveReceipt {
-    pub memo: SignedMemo,
+    pub memo: Memo,
     pub manifest: Manifest,
 }
 
@@ -30,14 +30,15 @@ pub fn archive(
 
     // Wrap manifest in a memo
     let mut root_memo = Memo::new(key_material.did(), manifest.into_link()?);
-    root_memo.set_ctype(Some(manifest::CONTENT_TYPE.to_string()));
+    // Set content type
+    root_memo.ctype = Some(manifest::CONTENT_TYPE.to_string());
     // Sign the memo
-    let signed_root_memo = root_memo.sign(&key_material)?;
+    root_memo.sign(&key_material)?;
 
     let archive_file = File::create(archive_file)?;
     let mut archive_writer = CborSeqWriter::new(archive_file);
     // Write the root memo
-    archive_writer.write_block(&signed_root_memo)?;
+    archive_writer.write_block(&root_memo)?;
     // Write the manifest
     archive_writer.write_block(&manifest)?;
     // Write everything else
@@ -49,14 +50,14 @@ pub fn archive(
     archive_writer.flush()?;
 
     Ok(ArchiveReceipt {
-        memo: signed_root_memo,
+        memo: root_memo,
         manifest,
     })
 }
 
 #[derive(Debug, Clone)]
 pub struct UnarchiveReceipt {
-    pub memo: SignedMemo,
+    pub memo: Memo,
     pub manifest: Manifest,
 }
 
@@ -66,14 +67,15 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
     let mut archive_reader = CborSeqReader::new(archive_file);
 
     let now_time = now();
-    let root_memo: SignedMemo = archive_reader.read_block()?;
+    let root_memo: Memo = archive_reader.read_block()?;
+    let root_memo_body = root_memo.body.clone();
     // Check if the root memo is valid (signature matches, etc)
-    let validated_memo = root_memo.clone().validate(Some(now_time))?;
+    root_memo.validate(Some(now_time))?;
 
     let manifest: Manifest = archive_reader.read_block()?;
 
     // Check memo body matches manifest
-    if validated_memo.body != manifest.into_link()? {
+    if root_memo_body != manifest.into_link()? {
         return Err(Error::ArchiveIntegrityError(format!(
             "Archive memo body does not match manifest"
         )));

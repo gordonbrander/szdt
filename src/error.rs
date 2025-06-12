@@ -46,6 +46,8 @@ pub enum Error {
     Signing(String),
     #[error("Archive integrity error: {0}")]
     ArchiveIntegrityError(String),
+    #[error("Memo is unsigned")]
+    MemoUnsigned,
     #[error("Memo is too early (nbf time didn't validate): {0}")]
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]

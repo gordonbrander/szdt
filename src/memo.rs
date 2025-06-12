@@ -13,14 +13,21 @@ pub struct Memo {
     /// Issued at (UNIX timestamp, seconds)
     pub iat: u64,
     /// Not valid before (UNIX timestamp, seconds)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nbf: Option<u64>,
     /// Expiration time (UNIX timestamp, seconds)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub exp: Option<u64>,
     /// Blake3 hash of the previous version of the memo
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prev: Option<Hash>,
+    /// Content type (MIME type)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ctype: Option<String>,
     /// Hash of the body of the memo
     pub body: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sig: Option<Vec<u8>>,
 }
 
 impl Memo {
@@ -34,7 +41,39 @@ impl Memo {
             prev: None,
             ctype: None,
             body,
+            sig: None,
         }
+    }
+
+    /// Sign the memo with the given key material, returning a signed memo
+    pub fn sign(&mut self, key_material: &Ed25519KeyMaterial) -> Result<(), Error> {
+        // Set any existing signature to None. This will prevent the field
+        // from being serialized.
+        self.sig = None;
+        // Get link hash (hash of CBOR-encoded memo)
+        let link = &self.into_link()?;
+        let sig = key_material.sign(link.as_bytes())?;
+        // Set the signature
+        self.sig = Some(sig);
+        Ok(())
+    }
+
+    /// Verify the signature of the memo, returning a result.
+    /// In the case that a Memo is not signed, will return an error of `Error::MemoUnsigned`.
+    pub fn verify(&self) -> Result<(), Error> {
+        let Some(sig) = &self.sig else {
+            return Err(Error::MemoUnsigned);
+        };
+        let key_material = Ed25519KeyMaterial::try_from(&self.iss)?;
+
+        // Recreate the unsigned memo.
+        let mut copy = self.clone();
+        copy.sig = None;
+        // Get the link for unsigned memo.
+        let link = copy.into_link()?;
+        // Verify the signature against the link.
+        key_material.verify(link.as_bytes(), sig)?;
+        Ok(())
     }
 
     /// Is claim expired?
@@ -53,7 +92,9 @@ impl Memo {
         }
     }
 
-    /// Is claim valid?
+    /// Is memo valid?
+    /// Checks if the memo is expired or too early, and verifies the signature.
+    /// Unsigned memos are considered invalid.
     pub fn validate(&self, now_time: Option<u64>) -> Result<(), Error> {
         if self.is_expired(now_time) {
             return Err(Error::MemoExpError(TimestampComparison::new(
@@ -65,95 +106,7 @@ impl Memo {
                 self.nbf, now_time,
             )));
         }
-        Ok(())
-    }
-
-    /// Get the content type
-    pub fn ctype(&self) -> Option<&str> {
-        self.ctype.as_deref()
-    }
-
-    /// Set the content type
-    pub fn set_ctype(&mut self, ctype: Option<String>) {
-        self.ctype = ctype;
-    }
-
-    /// Get the `prev` field, representing the hash of the previous memo
-    pub fn prev(&self) -> Option<&Hash> {
-        self.prev.as_ref()
-    }
-
-    /// Set the `prev` field, representing the hash of the previous memo
-    pub fn set_prev(&mut self, prev: Option<Hash>) {
-        self.prev = prev;
-    }
-
-    /// Sign the memo with the given key material, returning a signed memo
-    pub fn sign(self, key_material: &Ed25519KeyMaterial) -> Result<SignedMemo, Error> {
-        let link = &self.into_link()?;
-        let sig = key_material.sign(link.as_bytes())?;
-        Ok(SignedMemo {
-            iss: self.iss,
-            iat: self.iat,
-            nbf: self.nbf,
-            exp: self.exp,
-            prev: self.prev,
-            ctype: self.ctype,
-            body: self.body,
-            sig,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SignedMemo {
-    /// Issuer (DID)
-    pub iss: DidKey,
-    /// Issued at (UNIX timestamp, seconds)
-    pub iat: u64,
-    /// Not valid before (UNIX timestamp, seconds)
-    pub nbf: Option<u64>,
-    /// Expiration time (UNIX timestamp, seconds)
-    pub exp: Option<u64>,
-    /// Blake3 hash of the previous version of the memo
-    pub prev: Option<Hash>,
-    /// Content type of the memo body
-    pub ctype: Option<String>,
-    /// Hash of the body of the memo
-    pub body: Hash,
-    /// Signature over the link of the rest of the memo
-    pub sig: Vec<u8>,
-}
-
-impl SignedMemo {
-    /// Get the unsigned memo data
-    pub fn into_payload(self) -> Memo {
-        Memo {
-            iss: self.iss,
-            iat: self.iat,
-            nbf: self.nbf,
-            exp: self.exp,
-            prev: self.prev,
-            ctype: self.ctype,
-            body: self.body,
-        }
-    }
-
-    /// Verify the signature of the memo
-    pub fn verify(self) -> Result<Memo, Error> {
-        let key_material = Ed25519KeyMaterial::try_from(&self.iss)?;
-        let sig = self.sig.clone();
-        let memo = self.into_payload();
-        let link = memo.into_link()?;
-        key_material.verify(link.as_bytes(), &sig)?;
-        Ok(memo)
-    }
-
-    /// Verify the signature of the memo and validate the memo
-    pub fn validate(self, now_time: Option<u64>) -> Result<Memo, Error> {
-        let memo = self.verify()?;
-        memo.validate(now_time)?;
-        Ok(memo)
+        self.verify()
     }
 }
 
@@ -231,56 +184,14 @@ mod tests {
     }
 
     #[test]
-    fn test_memo_validate() {
+    fn test_memo_validate_unsigned() {
         let key = create_test_key();
         let did = DidKey::from(&key);
         let body_hash = create_test_hash();
-        let mut memo = Memo::new(did, body_hash);
+        let memo = Memo::new(did, body_hash);
 
         // Valid memo
-        assert!(memo.validate(None).is_ok());
-
-        // Expired memo
-        memo.exp = Some(now() - 3600);
         assert!(memo.validate(None).is_err());
-
-        // Reset expiration and set nbf in future
-        memo.exp = None;
-        memo.nbf = Some(now() + 3600);
-        assert!(memo.validate(None).is_err());
-    }
-
-    #[test]
-    fn test_memo_ctype_methods() {
-        let key = create_test_key();
-        let did = DidKey::from(&key);
-        let body_hash = create_test_hash();
-        let mut memo = Memo::new(did, body_hash);
-
-        assert_eq!(memo.ctype(), None);
-
-        memo.set_ctype(Some("text/plain".to_string()));
-        assert_eq!(memo.ctype(), Some("text/plain"));
-
-        memo.set_ctype(None);
-        assert_eq!(memo.ctype(), None);
-    }
-
-    #[test]
-    fn test_memo_prev_methods() {
-        let key = create_test_key();
-        let did = DidKey::from(&key);
-        let body_hash = create_test_hash();
-        let mut memo = Memo::new(did, body_hash);
-
-        assert_eq!(memo.prev(), None);
-
-        let prev_hash = create_test_hash();
-        memo.set_prev(Some(prev_hash.clone()));
-        assert_eq!(memo.prev(), Some(&prev_hash));
-
-        memo.set_prev(None);
-        assert_eq!(memo.prev(), None);
     }
 
     #[test]
@@ -288,29 +199,13 @@ mod tests {
         let key = create_test_key();
         let did = DidKey::from(&key);
         let body_hash = create_test_hash();
-        let memo = Memo::new(did, body_hash.clone());
+        let mut memo = Memo::new(did, body_hash.clone());
 
-        let signed_memo = memo.sign(&key).unwrap();
+        memo.sign(&key).unwrap();
 
-        assert_eq!(signed_memo.body, body_hash);
-        assert!(!signed_memo.sig.is_empty());
+        assert!(memo.sig.is_some());
 
-        let verified_memo = signed_memo.verify().unwrap();
-        assert_eq!(verified_memo.body, body_hash);
-    }
-
-    #[test]
-    fn test_signed_memo_into_payload() {
-        let key = create_test_key();
-        let did = DidKey::from(&key);
-        let body_hash = create_test_hash();
-        let memo = Memo::new(did.clone(), body_hash.clone());
-
-        let signed_memo = memo.sign(&key).unwrap();
-        let payload = signed_memo.into_payload();
-
-        assert_eq!(payload.iss, did);
-        assert_eq!(payload.body, body_hash);
+        memo.verify().unwrap();
     }
 
     #[test]
@@ -318,12 +213,10 @@ mod tests {
         let key = create_test_key();
         let did = DidKey::from(&key);
         let body_hash = create_test_hash();
-        let memo = Memo::new(did, body_hash.clone());
+        let mut memo = Memo::new(did, body_hash.clone());
 
-        let signed_memo = memo.sign(&key).unwrap();
-        let validated_memo = signed_memo.validate(None).unwrap();
-
-        assert_eq!(validated_memo.body, body_hash);
+        memo.sign(&key).unwrap();
+        memo.validate(None).unwrap();
     }
 
     #[test]
@@ -334,8 +227,8 @@ mod tests {
         let mut memo = Memo::new(did, body_hash);
 
         memo.exp = Some(now() - 3600); // Expired
-        let signed_memo = memo.sign(&key).unwrap();
+        memo.sign(&key).unwrap();
 
-        assert!(signed_memo.validate(None).is_err());
+        assert!(memo.validate(None).is_err());
     }
 }
