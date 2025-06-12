@@ -44,20 +44,12 @@ pub enum Error {
     Did(#[from] did::Error),
     #[error("Signing error: {0}")]
     Signing(String),
-    #[error("Value error")]
-    Value(String),
     #[error("Archive integrity error: {0}")]
     ArchiveIntegrityError(String),
     #[error("Memo is too early (nbf time didn't validate): {0}")]
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]
     MemoExpError(TimestampComparison),
-    #[error("Base encoding/decoding error: {0}")]
-    Base(String),
-    #[error("Unsupported base encoding. Only Base58BTC is supported.")]
-    UnsupportedBase,
-    #[error("Unsupported codec. Only Ed25519 public keys are supported.")]
-    UnsupportedCodec,
     #[error("EOF")]
     Eof,
 }

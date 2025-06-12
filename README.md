@@ -1,8 +1,16 @@
 # SZDT
 
-**S**igned **Z**ero-trust **D**a**T**a
+**S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed .car files for censorship-resistant publishing and archiving. Pronounced "Samizdat".
+Signed CBOR for censorship-resistant data publishing and archiving.
+
+## Intro
+
+- Zero trust:
+- Verfied streaming:
+- Verified random access:
+
+SZDT makes use of the Blake3 hashing algorithm to enable efficient streaming and random access while cryptographically verifying data integrity.
 
 ## Motivation
 

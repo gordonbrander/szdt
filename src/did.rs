@@ -42,13 +42,17 @@ impl TryFrom<&str> for DidKey {
         // Parse the did:key
         let base58_key = did_key
             .strip_prefix(DID_KEY_BASE58BTC_PREFIX)
-            .ok_or(Error::UnsupportedBase)?;
+            .ok_or(Error::Base(
+                "Unsupported base encoding. Only Base58BTC is supported.".to_string(),
+            ))?;
 
         let decoded_bytes = base58btc::decode(base58_key)?;
 
         // Verify that the first byte corresponds to ED25519_PUB_PREFIX
         if decoded_bytes.is_empty() || decoded_bytes[0] != MULTICODEC_ED25519_PUB_PREFIX {
-            return Err(Error::UnsupportedCodec);
+            return Err(Error::UnsupportedCodec(
+                "Only Ed25519 public keys are supported.".to_string(),
+            ));
         }
 
         // Extract the public key
@@ -95,10 +99,8 @@ pub enum Error {
     Key(#[from] ed25519::Error),
     #[error("Base encoding/decoding error: {0}")]
     Base(String),
-    #[error("Unsupported base encoding. Only Base58BTC is supported.")]
-    UnsupportedBase,
-    #[error("Unsupported codec. Only Ed25519 public keys are supported.")]
-    UnsupportedCodec,
+    #[error("Unsupported codec: {0}")]
+    UnsupportedCodec(String),
 }
 
 impl From<bs58::decode::Error> for Error {
