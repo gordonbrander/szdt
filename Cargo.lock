@@ -134,6 +134,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbor4ii"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "189a2a2e5eec2f203b2bb8bc4c2db55c7253770d2c6bf3ae5f79ace5a15c305f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -762,7 +771,7 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99600723cf53fb000a66175555098db7e75217c415bdd9a16a65d52a19dcc4fc"
 dependencies = [
- "cbor4ii",
+ "cbor4ii 0.2.14",
  "ipld-core",
  "scopeguard",
  "serde",
@@ -858,6 +867,7 @@ dependencies = [
  "bao",
  "blake3",
  "bs58",
+ "cbor4ii 1.0.0",
  "cid",
  "clap",
  "data-encoding",

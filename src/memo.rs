@@ -4,9 +4,11 @@ use crate::hash::Hash;
 use crate::link::IntoLink;
 use crate::util::now;
 use crate::{did::DidKey, error::TimestampComparison};
+use cbor4ii::core::Value;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Memo {
     /// Issuer (DID)
     pub iss: DidKey,
@@ -26,6 +28,9 @@ pub struct Memo {
     pub ctype: Option<String>,
     /// Hash of the body of the memo
     pub body: Hash,
+    /// Additional "non-blessed" fields
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sig: Option<Vec<u8>>,
 }
@@ -41,6 +46,7 @@ impl Memo {
             prev: None,
             ctype: None,
             body,
+            extra: HashMap::new(),
             sig: None,
         }
     }
