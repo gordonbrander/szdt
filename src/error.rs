@@ -34,9 +34,9 @@ impl std::fmt::Display for TimestampComparison {
 pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Decoding error: {0}")]
+    #[error("CBOR decoding error: {0}")]
     CborDecode(String),
-    #[error("Encoding error: {0}")]
+    #[error("CBOR encoding error: {0}")]
     CborEncode(String),
     #[error("ed25519 error: {0}")]
     Ed25519(#[from] ed25519::Error),
