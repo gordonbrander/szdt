@@ -2,13 +2,15 @@
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data publishing and archiving.
+Signed CBOR for censorship-resistant data archives.
 
 ## Intro
 
-- Zero trust:
-- Verfied streaming:
-- Verified random access:
+**TLDR**: a cryptographically-signed [CBOR sequence](https://www.rfc-editor.org/rfc/rfc8742.html) containing metadata, bytes, and everything needed to verify them.
+
+- **Zero trust**: Archives are cryptographically signed and content-addressed using Blake3 hashes, requiring no trusted authorities for verification.
+- **Verified streaming**: Blake3 and Bao enable streaming verification of archive integrity without buffering entire files.
+- **Verified random access**: Optional manifests provide efficient seeking to specific content via HTTP range requests or file seeks.
 
 SZDT makes use of the Blake3 hashing algorithm to enable efficient streaming and random access while cryptographically verifying data integrity.
 
@@ -28,15 +30,6 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 - Keeps long-tail content alive over long periods of time
 - Is easy to adopt **right now**, with infrastructure that is already widely deployed.
 
-## The idea
-
-**TLDR**: a cryptographically-signed .car file containing:
-
-- **Files** stored as raw bytes
-- **Links** to additional external files, with content addresses for verifying integrity and multiple redundant URLs for retrieval
-- **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic claims** proving the authenticity of the archive
-
 ## Goals
 
 - **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
@@ -54,9 +47,76 @@ If there are many copies, and many ways to find them, then data can survive the 
 - **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry about efficient chunking, or deduping. When efficient downloading is needed, we leverage established protocols like BitTorrent.
 - **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
 
-## Specification
+## Design
 
-See [spec.md](./spec.md).
+SZDT archives are CBOR sequences of **memos**, each containing open-ended headers and data. Everything is represented as a memo, and archives can contain any number of memos.
+
+### Memos
+
+Memos are CBOR arrays of `[headers, body]`
+
+- **headers**: CBOR map containing metadata. Like HTTP headers, memo headers can contain open-ended metadata. Any number of header fields are allowed, some fields, like `content-type`, are "blessed" by the spec.
+- **body**: A CBOR value representing the body part of the memo. The type of the body is determined by the `content-type` header. It is typically bytes.
+
+Example memo:
+
+```
+[
+  {                               // headers (CBOR map)
+    "content_type": "text/plain", // mime type of body
+    "path": "/example.txt",
+    "did": "did:key:...",         // DID for signature verification
+    "sig": h'...',                // cryptographic signature (optional)
+    "digest": h'...'              // Blake3 hash of body
+    // ...other metadata
+  },
+  h'...'       // bytes (raw content)
+]
+```
+
+Memos can be cryptographically signed. Signed memos carry all of the information needed to trustlessly verify the authenticity and integrity of the memo.
+
+### Archives
+
+Archives are CBOR sequences - a concatenation of individual CBOR-encoded memos:
+
+```
+archive = memo1 + memo2 + memo3 + ...
+```
+
+All CBOR items use the deterministic [CBOR/c ("CBOR Core")](https://datatracker-ietf-org.lucaspardue.com/doc/draft-rundgren-cbor-core/) profile so that items can be deterministically hashed, signed, and content-addressed.
+
+### Manifests
+
+Optional manifests provide efficient random access:
+
+```
+manifest_memo = [
+  {
+    "content-type": "application/vnd.szdt.manifest+cbor",
+    "digest": h'...'              // Blake3 hash of body
+    // ...other metadata
+  },
+  {
+    entries: manifest_entry[]
+  }
+]
+
+manifest_entry = {
+  "path": "/path/to/file",     // file path
+  "length": 1234,              // memo length in bytes
+  "digest": h`blake3_hash`     // Blake3 hash of memo
+}
+```
+
+Manifests can be distributed:
+- **Embedded**: As the first memo in the archive
+- **Sidecar**: Generated or distributed independently
+
+With a manifest, archives support efficient random access through:
+
+- **HTTP range requests**: `Range: bytes=offset-end`
+- **File seeking**: Direct file system seeks
 
 ## Development
 
