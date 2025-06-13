@@ -1,11 +1,12 @@
 use super::error::Error;
-use super::manifest::{self, Manifest, read_file_entries};
+use super::manifest::{self, Manifest};
 use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::file::{walk_files, write_file_deep};
-use crate::link::IntoLink;
+use crate::link::ToLink;
 use crate::memo::Memo;
 use crate::util::now;
+use data_encoding::BASE32_NOPAD_NOCASE;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::Path;
@@ -23,15 +24,13 @@ pub fn archive(
     key_material: &Ed25519KeyMaterial,
 ) -> Result<ArchiveReceipt, Error> {
     let paths = walk_files(dir)?;
-    let files = read_file_entries(paths.into_iter())?;
-
     // Construct manifest
-    let manifest = Manifest::new(files.clone());
+    let manifest = Manifest::from_paths(paths.clone().into_iter())?;
 
     // Wrap manifest in a memo
-    let mut root_memo = Memo::new(key_material.did(), manifest.into_link()?);
+    let mut root_memo = Memo::for_body(&manifest)?;
     // Set content type
-    root_memo.ctype = Some(manifest::CONTENT_TYPE.to_string());
+    root_memo.protected.ctype = Some(manifest::CONTENT_TYPE.to_string());
     // Sign the memo
     root_memo.sign(&key_material)?;
 
@@ -39,12 +38,11 @@ pub fn archive(
     let mut archive_writer = CborSeqWriter::new(archive_file);
     // Write the root memo
     archive_writer.write_block(&root_memo)?;
-    // Write the manifest
-    archive_writer.write_block(&manifest)?;
     // Write everything else
-    for file in files {
-        let bytes = fs::read(&file.path)?;
-        archive_writer.write_block(&bytes)?;
+    for path in &paths {
+        let bytes = fs::read(path)?;
+        let memo = Memo::for_body(&bytes)?;
+        archive_writer.write_block(&memo)?;
     }
 
     archive_writer.flush()?;
@@ -68,36 +66,38 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
 
     let now_time = now();
     let root_memo: Memo = archive_reader.read_block()?;
-    let root_memo_body = root_memo.body.clone();
     // Check if the root memo is valid (signature matches, etc)
     root_memo.validate(Some(now_time))?;
 
+    // The next block should be a manifest
     let manifest: Manifest = archive_reader.read_block()?;
-
+    let manifest_hash = manifest.to_link()?;
     // Check memo body matches manifest
-    if root_memo_body != manifest.into_link()? {
-        return Err(Error::ArchiveIntegrityError(format!(
-            "Archive memo body does not match manifest"
+    if root_memo.protected.body != manifest_hash {
+        return Err(Error::IntegrityError(format!(
+            "Manifest does not match memo body hash.\n\tExpected: {},\n\tGot: {}",
+            root_memo.protected.body, manifest_hash
         )));
     }
 
-    let files = manifest.files.clone();
-
-    for file_entry in files {
-        // There should be one block for each file
+    for file_entry in &manifest.entries {
+        // There should two blocks for each file
+        let memo: Memo = archive_reader.read_block()?;
         let bytes: Vec<u8> = archive_reader.read_block()?;
         // Check integrity
-        let hash = bytes.into_link()?;
-        if hash != file_entry.hash {
-            return Err(Error::ArchiveIntegrityError(format!(
-                "File integrity error. Hash mismatch for file {}.\n\tExpected: {},\n\tGot: {}",
-                file_entry.path.to_string_lossy(),
-                file_entry.hash,
-                hash
+        let hash = bytes.to_link()?;
+        if &hash != &file_entry.hash || &hash != &memo.protected.body {
+            let path = file_entry.path.clone().unwrap_or("".to_string());
+            return Err(Error::IntegrityError(format!(
+                "File does not match memo body hash for path {}.\n\tExpected: {},\n\tGot: {}",
+                path, file_entry.hash, hash
             )));
         }
 
-        let path = dir.join(&file_entry.path);
+        let hash_base32 = BASE32_NOPAD_NOCASE
+            .encode(hash.as_bytes())
+            .to_ascii_lowercase();
+        let path = dir.join(file_entry.path.as_ref().unwrap_or(&hash_base32));
         write_file_deep(&path, &bytes)?;
     }
 

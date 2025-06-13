@@ -45,13 +45,17 @@ pub enum Error {
     #[error("Signing error: {0}")]
     Signing(String),
     #[error("Archive integrity error: {0}")]
-    ArchiveIntegrityError(String),
+    IntegrityError(String),
+    #[error("Memo issuer DID is missing")]
+    MemoIssMissing,
     #[error("Memo is unsigned")]
     MemoUnsigned,
     #[error("Memo is too early (nbf time didn't validate): {0}")]
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]
     MemoExpError(TimestampComparison),
+    #[error("Body hash mismatch - computed hash does not match header hash")]
+    BodyHashMismatch,
     #[error("EOF")]
     Eof,
 }

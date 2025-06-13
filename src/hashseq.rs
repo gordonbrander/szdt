@@ -27,6 +27,11 @@ impl HashSeq {
         &self.0
     }
 
+    /// Unwrap and return the underlying byte vec
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0
+    }
+
     /// Iterate over the hashes in this sequence.
     pub fn iter(&self) -> impl Iterator<Item = Hash> + '_ {
         self.0.chunks_exact(32).map(|chunk| {

@@ -4,6 +4,56 @@ Reverse-chronological.
 
 ---
 
+Always sign over the hash of the (unmodified) bytes. This way the claim can be distributed separately from the bytes, and the bytes can be retreived over content-addressed storage.
+
+---
+
+Alternatively, we could separate the memo from the bytes, and hold a hash of the body part in the memo under `src` or `body`. If we did this, we should flatten the graph into a CBOR sequence (like CAR).
+
+In what order? Depth-first, first-seen order.
+
+> A filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root. <https://ipld.io/specs/transport/car/carv1/#determinism>
+
+Since we aren't doing deep graphs, this would mean:
+
+```
+headers | body | headers | body
+```
+
+---
+
+Split headers into protected/unprotected (like COSE):
+
+```
+[
+  {
+    sig: h`abc123`
+  }, // unprotected
+  {
+    "content-type": "application/octet-stream",
+  }, // protected
+  h'xyz123' // body
+]
+```
+
+Signatures happen over protected headers and body:
+
+```
+sign(
+  [
+    {
+      "content-type": "application/octet-stream",
+    },
+    h'xyz123'
+  ],
+  key
+)
+```
+
+If we split headers into protected and unprotected, then we can permissionlessly extend signing and encryption features in future, without resorting to spec'ing a signing procedure beyond the protected/unprotected mechanism. For example, we could add witnesses by signing over the protected fields, and adding a `witnesses` field to the unprotected headers.
+
+---
+
 What should we index?
 
 In IPLD CARv2 format, the index provides an index of CIDs (Content Identifiers) to their byte offsets within the CAR file. Maybe that's all we need.

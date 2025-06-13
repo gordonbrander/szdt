@@ -45,21 +45,34 @@ Each memo is an independent definite-length CBOR-encoded object. The memos are s
 
 ### Memo Structure
 
-Each memo is a CBOR array containing exactly two elements: `[headers, body]`
+Each memo is a CBOR array containing exactly three elements:
 
 ```
-memo = [headers, body]
+memo = [unprotected_headers, protected_headers, body]
 ```
 
 Where:
-- **headers**: CBOR map containing metadata and claims
-- **body**: CBOR value representing the content (typically bytes)
+- **unprotected_headers**: A CBOR map containing key-value metadata. Unprotected headers are not covered by cryptographic signatures, and may be freely modified by anyone.
+- **protected_headers**: CBOR map containing key-value metadata. When signing a memo, protected headers are covered by the cryptographic signature(s) over the memo.
+- **body**: CBOR value representing the content (typically bytes). When signing a memo, the body is covered by the cryptographic signatures over the memo.
 
 ### Header Schema
 
-Headers are CBOR maps of open-ended key-value metadata. As with HTTP headers, authors are free to extend headers with additional fields. Also like HTTP headers, some headers have special meanings defined by the protocol, and in some cases, may be required.
+Both protected and unprotected headers are CBOR maps of open-ended key-value metadata. As with HTTP headers, authors are free to extend these headers with additional fields. Also like HTTP headers, some headers have special meanings defined by the protocol, and in some cases, may be required.
 
-#### Required Fields
+#### Required unprotected headers
+
+None.
+
+#### Optional protected headers
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sig` | Bytes | An Ed25519 cryptographic signature over the protected headers and body |
+
+Optional headers that are not given definite values MUST be omitted when serializing.
+
+#### Required protected headers
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -76,11 +89,16 @@ Headers are CBOR maps of open-ended key-value metadata. As with HTTP headers, au
 | `prev` | Bytes(32) | Blake3 hash of previous version of this memo |
 | `content-type` | String | MIME content type of body |
 | `path` | String | File path for this resource |
-| `sig` | Bytes | Ed25519 signature over headers (excluding sig field) |
+
+Optional headers that are not given definite values MUST be omitted when serializing.
 
 #### Additional Fields
 
-Headers may contain additional fields for application-specific metadata. To avoid confusion, header field keys should be lowercase strings.
+Both protected and unprotected headers may contain open-ended additional fields for application-specific metadata.
+
+Headers defined in HTTP suite of specifications must be considered to have the same semantics as in HTTP. Applications should not define headers that conflict with the semantics of HTTP headers.
+
+To avoid confusion, header field keys (including headers borrowed from HTTP) should always be lowercase strings.
 
 #### Example Memo
 
@@ -113,24 +131,24 @@ Memo body integrity verified by comparing `digest` hash field with Blake3 hash o
 
 Memos may optionally be signed to enable zero-trust verification of authenticity.
 
-The signature happens over the memo headers. Only the headers are protected by the signature, not the body bytes. To sign over the body bytes, we may include a `digest` field in the headers that with the Blake3 hash of the body content. This approach allows headers to be distributed separately from the body bytes as proofs. This can be useful in scenarios where the body bytes may be distributed separately (e.g. through a content addressed protocol). It also makes verifying the signature cheaper, since we only need to copy the headers when reconstructing the unsigned memo.
+Signatures cover only the protected parts of the memo (protected headers and body).
+
+Signatures always happen over "hash sequences", concatenations of Blake3 hashes. Since Blake3 hashes are always 32 bytes, a hash sequence will always be `n * 32` bytes long, and can be iterated over in 32 byte chunks. By signing over the hash sequence, it becomes possible to distribute signatures separately from the bytes, allowing for retreival of the bytes over content addressed storage.
 
 ### Signing Process
 
-1. Create memo with all fields except `sig`
-2. CBOR-encode the memo using CBOR/c profile
-3. Compute Blake3 hash of encoded memo
-4. Sign hash using Ed25519 private key corresponding to the `iss` DID
-5. Set `sig` field to signature bytes
+1. Compute the Blake3 hash of the CBOR-encoded protected headers, using the CBOR/c profile.
+2. Compute Blake3 hash of the CBOR-encoded body, using the CBOR/c profile.
+3. Construct a hash sequence, a concatenation of `protected_headers_hash || body_hash`. Since Blake3 hashes are always 32 bytes, this will result in a byte string of 64 bytes.
+4. Sign the hash sequence using Ed25519 private key that corresponds to the public key described by the `iss` DID.
+5. In the unprotected headers, set the `sig` header to the signature bytes
 
 ### Verification Process
 
-1. Extract signature from `sig` field
-2. Create copy of memo with `sig` field removed
-3. CBOR-encode the unsigned memo using CBOR/c profile
-4. Compute Blake3 hash of encoded memo
-5. Verify the signature over this hash using Ed25519 public key from `iss` DID
-6. Verify body integrity by comparing `digest` hash with Blake3 hash of body content
+1. Extract signature from `sig` field in the unprotected headers
+2. Compute Blake3 hash of the CBOR-encoded body, using the CBOR/c profile.
+3. Construct a "hash sequence", a concatenation of `protected_headers_hash || body_hash`. Since Blake3 hashes are always 32 bytes, this will result in a byte string of 64 bytes.
+4. Verify the signature over the hash sequence using Ed25519 public key from `iss` DID
 
 ### DID Key Format
 
