@@ -42,6 +42,8 @@ pub enum Error {
     Ed25519(#[from] ed25519::Error),
     #[error("DID error: {0}")]
     Did(#[from] did::Error),
+    #[error("Error stripping path prefix")]
+    StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Signing error: {0}")]
     Signing(String),
     #[error("Archive integrity error: {0}")]
@@ -54,8 +56,6 @@ pub enum Error {
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]
     MemoExpError(TimestampComparison),
-    #[error("Body hash mismatch - computed hash does not match header hash")]
-    BodyHashMismatch,
     #[error("EOF")]
     Eof,
 }
