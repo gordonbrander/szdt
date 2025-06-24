@@ -58,6 +58,8 @@ pub enum Error {
     MemoExpError(TimestampComparison),
     #[error("EOF")]
     Eof,
+    #[error("Value error: {0}")]
+    Value(String),
 }
 
 impl From<serde_ipld_dagcbor::DecodeError<std::io::Error>> for Error {

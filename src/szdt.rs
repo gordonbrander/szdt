@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
@@ -47,7 +48,7 @@ pub fn archive(
         // order they are listed.
         let file_path = &dir.join(&resource.path);
         let bytes = fs::read(file_path)?;
-        let cbor_bytes = cbor4ii::core::Value::Bytes(bytes);
+        let cbor_bytes = Bytes(bytes);
         archive_writer.write_block(&cbor_bytes)?;
     }
 
@@ -83,7 +84,7 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
 
     // Now load everything else
     for resource in &manifest.resources {
-        let bytes: Vec<u8> = archive_reader.read_block()?;
+        let bytes: Bytes = archive_reader.read_block()?;
         let hash = bytes.to_link()?;
         // Check integrity
         if &hash != &resource.src {
@@ -96,7 +97,7 @@ pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceip
         }
 
         let path = dir.join(&resource.path);
-        write_file_deep(&path, &bytes)?;
+        write_file_deep(&path, &bytes.0)?;
     }
 
     Ok(UnarchiveReceipt {

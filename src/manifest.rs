@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use crate::error::Error;
 use crate::hash::Hash;
 use serde::{Deserialize, Serialize};
@@ -57,7 +58,7 @@ impl Manifest {
             let mut file = File::open(&path)?;
             file.read_to_end(&mut bytes)?;
             let relative_path = path.strip_prefix(&base)?.to_path_buf();
-            let cbor_bytes = cbor4ii::core::Value::Bytes(bytes);
+            let cbor_bytes = Bytes(bytes);
             let headers = ResourceHeaders::for_value(&cbor_bytes, relative_path, None)?;
             resources.push(headers);
         }

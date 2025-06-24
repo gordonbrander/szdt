@@ -1,3 +1,4 @@
+use crate::bytes::Bytes;
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
 use crate::hash::Hash;
@@ -14,7 +15,7 @@ use std::collections::HashMap;
 pub struct UnprotectedHeaders {
     /// Ed25519 signature over protected memo fields
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sig: Option<Vec<u8>>,
+    pub sig: Option<Bytes>,
     /// Additional fields
     #[serde(flatten)]
     pub extra: HashMap<String, Value>,
@@ -114,7 +115,7 @@ impl Memo {
         let sig = key_material.sign(protected_hash.as_bytes())?;
 
         // Set the signature
-        self.unprotected.sig = Some(sig);
+        self.unprotected.sig = Some(Bytes(sig));
         Ok(())
     }
 
@@ -134,7 +135,7 @@ impl Memo {
         // Construct the signing bytes
         let protected_hash = self.protected.to_link()?;
         // Verify the signature against the signing bytes.
-        key_material.verify(protected_hash.as_bytes(), sig)?;
+        key_material.verify(protected_hash.as_bytes(), &sig.0)?;
         Ok(())
     }
 

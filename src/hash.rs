@@ -1,4 +1,4 @@
-/// A Blake3 hash
+use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
@@ -27,7 +27,7 @@ impl Hash {
         Hash(hasher.finalize())
     }
 
-    /// Create a Hash from its raw bytes representation.
+    /// Construct a hash from a byte array representing the hash.
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(blake3::Hash::from_bytes(bytes))
     }
@@ -35,6 +35,12 @@ impl Hash {
     /// Bytes of the hash.
     pub fn as_bytes(&self) -> &[u8; 32] {
         self.0.as_bytes()
+    }
+
+    /// Construct a hash from a slice representing the hash bytes
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, std::array::TryFromSliceError> {
+        let byte_array: [u8; 32] = bytes.try_into()?;
+        Ok(Self::from_bytes(byte_array))
     }
 }
 
@@ -61,7 +67,7 @@ impl Serialize for Hash {
     where
         S: serde::Serializer,
     {
-        self.0.serialize(serializer)
+        serializer.serialize_bytes(self.0.as_bytes())
     }
 }
 
@@ -70,8 +76,37 @@ impl<'de> Deserialize<'de> for Hash {
     where
         D: serde::Deserializer<'de>,
     {
-        let inner = blake3::Hash::deserialize(deserializer)?;
-        Ok(Hash(inner))
+        deserializer.deserialize_bytes(HashVisitor)
+    }
+}
+
+struct HashVisitor;
+
+impl<'de> Visitor<'de> for HashVisitor {
+    type Value = Hash;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a byte string representing a hash")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let hash = Hash::from_slice(value).map_err(|_| {
+            de::Error::invalid_value(Unexpected::Bytes(value), &"a byte array of length 32")
+        })?;
+        Ok(hash)
+    }
+
+    fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let hash = Hash::from_slice(&value).map_err(|_| {
+            de::Error::invalid_value(Unexpected::Bytes(&value), &"a byte array of length 32")
+        })?;
+        Ok(hash)
     }
 }
 
@@ -91,5 +126,50 @@ impl From<Hash> for blake3::Hash {
 impl From<blake3::Hash> for Hash {
     fn from(value: blake3::Hash) -> Self {
         Hash(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash_serializes_as_cbor_byte_string() {
+        let hash = Hash::new(b"test data");
+        let serialized = serde_ipld_dagcbor::to_vec(&hash).expect("Failed to serialize hash");
+
+        // CBOR byte strings with length 32 should start with 0x58 0x20
+        // 0x58 = major type 2 (byte string) with additional info 24 (1-byte length follows)
+        // 0x20 = 32 in decimal (the length of blake3 hash)
+        assert_eq!(
+            serialized[0], 0x58,
+            "First byte should indicate CBOR byte string with 1-byte length"
+        );
+        assert_eq!(serialized[1], 32, "Second byte should be the length (32)");
+        assert_eq!(
+            serialized.len(),
+            34,
+            "Total length should be 2 header bytes + 32 data bytes"
+        );
+
+        // Verify the hash bytes are included
+        assert_eq!(&serialized[2..], hash.as_bytes(), "Hash bytes should match");
+    }
+
+    #[test]
+    fn test_hash_roundtrip() {
+        let original_hash = Hash::new(b"roundtrip test data");
+
+        // Serialize
+        let serialized = serde_ipld_dagcbor::to_vec(&original_hash).expect("Failed to serialize");
+
+        // Deserialize
+        let deserialized_hash: Hash =
+            serde_ipld_dagcbor::from_slice(&serialized).expect("Failed to deserialize");
+
+        assert_eq!(
+            original_hash, deserialized_hash,
+            "Hash should roundtrip correctly"
+        );
     }
 }
