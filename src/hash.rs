@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_roundtrip() {
+    fn test_hash_serialize_roundtrip() {
         let original_hash = Hash::new(b"roundtrip test data");
 
         // Serialize
