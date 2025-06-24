@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 
 /// Blake3 hash
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Hash(blake3::Hash);
 
 impl Hash {
@@ -35,6 +35,18 @@ impl Hash {
     /// Bytes of the hash.
     pub fn as_bytes(&self) -> &[u8; 32] {
         self.0.as_bytes()
+    }
+}
+
+impl PartialOrd for Hash {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.0.as_bytes().cmp(other.0.as_bytes()))
+    }
+}
+
+impl Ord for Hash {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.as_bytes().cmp(other.0.as_bytes())
     }
 }
 
