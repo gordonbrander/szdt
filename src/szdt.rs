@@ -6,18 +6,9 @@ use crate::link::ToLink;
 use crate::manifest::{self, Manifest};
 use crate::memo::Memo;
 use crate::util::now;
-use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::Path;
-
-/// Archive blocks come in two kinds: memo and bytes
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Block {
-    Memo(Memo),
-    Bytes(Vec<u8>),
-}
 
 #[derive(Debug, Clone)]
 pub struct ArchiveReceipt {
