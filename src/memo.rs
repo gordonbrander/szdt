@@ -48,12 +48,12 @@ pub struct ProtectedHeaders {
     /// Content type (MIME type)
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "content-type")]
-    pub ctype: Option<String>,
+    pub content_type: Option<String>,
     /// File path within archive
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     /// Blake3 hash of the memo body
-    pub body: Hash,
+    pub src: Hash,
     /// Additional fields
     #[serde(flatten)]
     pub extra: HashMap<String, Value>,
@@ -68,9 +68,9 @@ impl ProtectedHeaders {
             nbf: Some(now()),
             exp: None,
             prev: None,
-            ctype: None,
+            content_type: None,
             path: None,
-            body,
+            src: body,
             extra: HashMap::new(),
         }
     }
@@ -172,6 +172,20 @@ impl Memo {
         }
         self.verify()
     }
+
+    /// Check the hash of a serializable value against the `src` field of this memo.
+    /// Value will be serialized to CBOR and hashed, and the hash compared to
+    /// the `src` hash of the memo.
+    pub fn checksum<T: Serialize>(&self, body: &T) -> Result<(), Error> {
+        let hash = body.to_link()?;
+        if self.protected.src != hash {
+            return Err(Error::IntegrityError(format!(
+                "Value hash does not match src. Expected {}. Got: {}",
+                &self.protected.src, &hash
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -196,11 +210,11 @@ mod tests {
         let headers = ProtectedHeaders::new(body_hash.clone());
 
         assert!(headers.iss.is_none());
-        assert_eq!(headers.body, body_hash);
+        assert_eq!(headers.src, body_hash);
         assert!(headers.nbf.is_some());
         assert!(headers.exp.is_none());
         assert!(headers.prev.is_none());
-        assert!(headers.ctype.is_none());
+        assert!(headers.content_type.is_none());
         assert!(headers.path.is_none());
     }
 
@@ -210,7 +224,7 @@ mod tests {
         let memo = Memo::for_body(&body_content).unwrap();
 
         let cbor_bytes = serde_ipld_dagcbor::to_vec(body_content).unwrap();
-        assert_eq!(memo.protected.body, Hash::new(&cbor_bytes));
+        assert_eq!(memo.protected.src, Hash::new(&cbor_bytes));
     }
 
     #[test]
@@ -292,5 +306,18 @@ mod tests {
         memo.sign(&key).unwrap();
 
         assert!(memo.validate(None).is_err());
+    }
+
+    #[test]
+    fn test_memo_checksum() {
+        let body_content = b"Hello World".to_vec();
+        let memo = Memo::for_body(&body_content).unwrap();
+
+        // Checksum should pass for the same content
+        memo.checksum(&body_content).unwrap();
+
+        // Checksum should fail for different content
+        let different_content = b"Different content".to_vec();
+        assert!(memo.checksum(&different_content).is_err());
     }
 }
