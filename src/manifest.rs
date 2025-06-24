@@ -52,13 +52,13 @@ impl Manifest {
         I: Iterator<Item = PathBuf>,
     {
         let mut resources: Vec<ResourceHeaders> = Vec::new();
-        let mut buf = vec![];
         for path in paths {
-            buf.truncate(0);
+            let mut bytes = vec![];
             let mut file = File::open(&path)?;
-            file.read_to_end(&mut buf)?;
+            file.read_to_end(&mut bytes)?;
             let relative_path = path.strip_prefix(&base)?.to_path_buf();
-            let headers = ResourceHeaders::for_value(&buf, relative_path, None)?;
+            let cbor_bytes = cbor4ii::core::Value::Bytes(bytes);
+            let headers = ResourceHeaders::for_value(&cbor_bytes, relative_path, None)?;
             resources.push(headers);
         }
         Ok(Self { resources })

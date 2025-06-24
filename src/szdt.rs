@@ -47,7 +47,8 @@ pub fn archive(
         // order they are listed.
         let file_path = &dir.join(&resource.path);
         let bytes = fs::read(file_path)?;
-        archive_writer.write_block(&bytes)?;
+        let cbor_bytes = cbor4ii::core::Value::Bytes(bytes);
+        archive_writer.write_block(&cbor_bytes)?;
     }
 
     archive_writer.flush()?;
