@@ -24,7 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Unpack a .car archive")]
+    #[command(about = "Unpack an .szdt archive")]
     Unarchive {
         #[arg(help = "Archive file")]
         #[arg(value_name = "FILE")]
@@ -38,9 +38,9 @@ enum Commands {
         dir: Option<PathBuf>,
     },
 
-    #[command(about = "Create a .car archive from a folder full of files")]
+    #[command(about = "Create an .szdt archive from a folder")]
     Archive {
-        #[arg(help = "Directory to archive")]
+        #[arg(help = "Folder to archive")]
         #[arg(value_name = "DIR")]
         dir: PathBuf,
 
