@@ -1,3 +1,4 @@
+use data_encoding::BASE32_NOPAD;
 use serde::de::{self, Unexpected, Visitor};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
@@ -58,7 +59,9 @@ impl Ord for Hash {
 
 impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        let hash_base32_hex = BASE32_NOPAD.encode(self.0.as_bytes());
+        let hash_base32_hex_lowercase = hash_base32_hex.to_lowercase();
+        write!(f, "{}", hash_base32_hex_lowercase)
     }
 }
 

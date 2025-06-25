@@ -62,11 +62,15 @@ fn archive_cmd(dir: PathBuf, private_key_base58: String) {
     let key_material = Ed25519KeyMaterial::try_from_private_key(&private_key_bytes)
         .expect("Private key is not valid");
 
-    println!("Writing archive: {}", file_name.display());
-
-    let _ = archive(&dir, &file_name, &key_material).expect("Unable to create archive");
+    let archive_receipt =
+        archive(&dir, &file_name, &key_material).expect("Unable to create archive");
 
     println!("Archive created: {}", file_name.display());
+    println!("Issuer: {}", key_material.did());
+    println!("Manifest:");
+    for resource in archive_receipt.manifest.resources {
+        println!("{} {}", resource.path.to_string_lossy(), resource.src);
+    }
 }
 
 fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
