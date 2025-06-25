@@ -1,7 +1,10 @@
 use crate::base58btc;
 use crate::ed25519;
+use ed25519_dalek::PUBLIC_KEY_LENGTH;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 
 /// The multicodec prefix for ed25519 public key is 0xed.
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -12,7 +15,7 @@ const MULTICODEC_ED25519_PUB_PREFIX: u8 = 0xed;
 const DID_KEY_BASE58BTC_PREFIX: &str = "did:key:z";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DidKey(ed25519::PublicKey);
+pub struct DidKey(PublicKey);
 
 impl DidKey {
     pub fn new(pubkey_bytes: &[u8]) -> Result<Self, Error> {
@@ -20,14 +23,28 @@ impl DidKey {
         Ok(DidKey(pubkey))
     }
 
-    pub fn pubkey(&self) -> &ed25519::PublicKey {
+    pub fn public_key(&self) -> &ed25519::PublicKey {
         &self.0
     }
 }
 
 impl std::fmt::Display for DidKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from(self))
+        // Convert public key to multibase encoded string
+        let mut multicodec_bytes = vec![MULTICODEC_ED25519_PUB_PREFIX];
+        multicodec_bytes.extend_from_slice(&self.0);
+
+        // Encode with multibase (Base58BTC, prefix 'z')
+        let multibase_encoded = base58btc::encode(multicodec_bytes);
+
+        // Construct the did:key
+        write!(f, "{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
+    }
+}
+
+impl From<&DidKey> for String {
+    fn from(did_key: &DidKey) -> Self {
+        did_key.to_string()
     }
 }
 
@@ -39,31 +56,21 @@ impl TryFrom<&str> for DidKey {
         // Parse the did:key
         let base58_key = did_key
             .strip_prefix(DID_KEY_BASE58BTC_PREFIX)
-            .ok_or(Error::UnsupportedBase)?;
+            .ok_or(Error::Base(
+                "Unsupported base encoding. Only Base58BTC is supported.".to_string(),
+            ))?;
 
         let decoded_bytes = base58btc::decode(base58_key)?;
 
         // Verify that the first byte corresponds to ED25519_PUB_PREFIX
         if decoded_bytes.is_empty() || decoded_bytes[0] != MULTICODEC_ED25519_PUB_PREFIX {
-            return Err(Error::UnsupportedCodec);
+            return Err(Error::UnsupportedCodec(
+                "Only Ed25519 public keys are supported.".to_string(),
+            ));
         }
 
         // Extract the public key
         DidKey::new(&decoded_bytes[1..])
-    }
-}
-
-impl From<&DidKey> for String {
-    fn from(did_key: &DidKey) -> Self {
-        // Convert public key to multibase encoded string
-        let mut multicodec_bytes = vec![MULTICODEC_ED25519_PUB_PREFIX];
-        multicodec_bytes.extend_from_slice(&did_key.0);
-
-        // Encode with multibase (Base58BTC, prefix 'z')
-        let multibase_encoded = base58btc::encode(multicodec_bytes);
-
-        // Construct the did:key
-        format!("{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
     }
 }
 
@@ -92,10 +99,8 @@ pub enum Error {
     Key(#[from] ed25519::Error),
     #[error("Base encoding/decoding error: {0}")]
     Base(String),
-    #[error("Unsupported base encoding. Only Base58BTC is supported.")]
-    UnsupportedBase,
-    #[error("Unsupported codec. Only Ed25519 public keys are supported.")]
-    UnsupportedCodec,
+    #[error("Unsupported codec: {0}")]
+    UnsupportedCodec(String),
 }
 
 impl From<bs58::decode::Error> for Error {

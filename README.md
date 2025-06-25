@@ -1,8 +1,18 @@
 # SZDT
 
-**S**igned **Z**ero-trust **D**a**T**a
+**S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed .car files for censorship-resistant publishing and archiving. Pronounced "Samizdat".
+Signed CBOR for censorship-resistant data archives.
+
+## Intro
+
+**TLDR**: a cryptographically-signed [CBOR sequence](https://www.rfc-editor.org/rfc/rfc8742.html) containing metadata, bytes, and everything needed to verify them.
+
+- **Zero trust**: Archives are cryptographically signed and content-addressed using Blake3 hashes, requiring no trusted authorities for verification.
+- **Verified streaming**: Blake3 and Bao enable streaming verification of archive integrity without buffering entire files.
+- **Verified random access**: Optional manifests provide efficient seeking to specific content via HTTP range requests or file seeks.
+
+SZDT makes use of the Blake3 hashing algorithm to enable efficient streaming and random access while cryptographically verifying data integrity.
 
 ## Motivation
 
@@ -20,31 +30,20 @@ To maintain a resilient information ecosystem, we need a simple way to publish a
 - Keeps long-tail content alive over long periods of time
 - Is easy to adopt **right now**, with infrastructure that is already widely deployed.
 
-## The idea
-
-**TLDR**: a cryptographically-signed .car file containing:
-
-- **Files** stored as raw bytes
-- **Links** to additional external files, with content addresses for verifying integrity and multiple redundant URLs for retrieval
-- **Address book**, mapping known public keys to [petnames](https://files.spritely.institute/papers/petnames.html).
-- **Cryptographic claims** proving the authenticity of the archive
-
 ## Goals
 
 - **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
-- **Decentralized**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). SZDT archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. Likewise, URLs in SZDT files point to many redundant locations, including HTTP servers, BitTorrent, and more.
+- **Decentralized**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). SZDT archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc.
 - **Censorship-resistant**: Distributable via HTTP, Torrents, email, airdrop, sneakernet, or anything else.
-- **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required. This allows for anonymous and pseudonymous publishing. If an author wishes to be publicly known, they can use other protocols to link a key to their identity.
-- **Discoverable**: SZDT archives contain multiple pointers to places where other archives and keys can be found. With just one or two SZDT files, you can follow the links to construct your own web of trust and collection of archives.
-- **Boring**: SZDT uses ubiquitous technology. It is designed to be compatible with widely deployed infrastructure, like HTTP. The format is simple, and easy to implement in any language.
-
-If there are many copies, and many ways to find them, then data can survive the way dandelions do—by spreading seeds.
+- **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required.
+- **Resilient**: built on CBOR sequences, an [IETF standard](https://cbor.io/spec.html) that is widely supported and should be readable 10, 20, 100 years into the future.
+- **Streamable**: CBOR is inherently streamable, and Blake3 hashes enable streaming cryptographic verification.
 
 ### Non-goals
 
-- **P2P**: SZDT is transport-agnostic. It's just a file format. You should be able to publish, share, and retreive SZDT archives from anywhere, including HTTP, BitTorrent, email, messaging apps, sneakernet, etc.
-- **Efficiency**: SZDT is not efficient. Its goal is to be simple and resilient, like a cockroach. We don't worry about efficient chunking, or deduping. When efficient downloading is needed, we leverage established protocols like BitTorrent.
-- **Comprehensive preservation**: SZDT doesn't aim for comprehensive preservation. Instead it aims to make it easy to spread data like dandelion seeds. Dandelions are difficult to weed out.
+- **P2P**: SZDT is transport-agnostic. It's just a file format.
+- **Efficiency**: SZDT prioritizes simplicity and resilience over efficiency.
+- **Comprehensive preservation**: SZDT aims to make it easy to spread data like dandelion seeds.
 
 ## Specification
 

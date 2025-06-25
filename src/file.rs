@@ -23,6 +23,31 @@ fn _walk_files(paths: &mut Vec<PathBuf>, path: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
+/// List all files in a directory (non-recursive).
+pub fn list_files(path: &Path) -> Result<Vec<PathBuf>, io::Error> {
+    let mut paths = Vec::new();
+    for child in fs::read_dir(path)? {
+        let child = child?;
+        if child.file_type()?.is_file() {
+            paths.push(child.path());
+        }
+    }
+    Ok(paths)
+}
+
+/// Write file to a path, creating parent directories if necessary.
+pub fn write_file_deep<P: AsRef<Path>, C: AsRef<[u8]>>(
+    path: P,
+    content: C,
+) -> Result<(), io::Error> {
+    let path = path.as_ref();
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no parent"))?;
+    fs::create_dir_all(parent)?;
+    fs::write(path, content)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,6 +81,25 @@ mod tests {
         assert!(paths.contains(&temp_path.join("file1.txt")));
         assert!(paths.contains(&subdir1.join("file2.txt")));
         assert!(paths.contains(&subdir2.join("file3.txt")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_write_file_deep() -> Result<(), io::Error> {
+        // Create a temporary directory structure
+        let temp_dir = tempdir()?;
+        let temp_path = temp_dir.path();
+
+        // Write content to a new file in a new directory
+        let new_file_path = temp_path.join("new_directory/new_file.txt");
+        let new_file_content = b"new file content";
+
+        write_file_deep(&new_file_path, new_file_content)?;
+
+        // Check that file exists and content is as expected
+        assert!(new_file_path.exists());
+        assert_eq!(fs::read_to_string(new_file_path)?, "new file content");
 
         Ok(())
     }

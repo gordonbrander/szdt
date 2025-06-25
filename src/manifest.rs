@@ -1,111 +1,84 @@
-use crate::cid::{self, read_into_cid_v1_raw};
-use crate::file::walk_files;
-use cid::Cid;
+use crate::bytes::Bytes;
+use crate::error::Error;
+use crate::hash::Hash;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::collections::TryReserveError;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
-use url::Url;
 
-/// Archive manifest
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub static CONTENT_TYPE: &str = "application/vnd.szdt.manifest+cbor";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ResourceHeaders {
+    /// Hash for resource
+    pub src: Hash,
+    /// Length of resource in bytes
+    pub length: u64,
+    /// Path for resource
+    pub path: PathBuf,
+    /// Content type (MIME type) of resource (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "content-type")]
+    pub content_type: Option<String>,
+}
+
+impl ResourceHeaders {
+    /// Construct a new manifest entry for a serializable value.
+    pub fn for_value<T: Serialize>(
+        value: T,
+        path: PathBuf,
+        content_type: Option<String>,
+    ) -> Result<Self, Error> {
+        let cbor_bytes = serde_ipld_dagcbor::to_vec(&value)?;
+        let src = Hash::new(&cbor_bytes);
+        Ok(Self {
+            src,
+            length: cbor_bytes.len() as u64,
+            path,
+            content_type,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Manifest {
-    files: BTreeMap<PathBuf, Link>,
+    pub resources: Vec<ResourceHeaders>,
 }
 
 impl Manifest {
-    pub fn new() -> Self {
-        Manifest {
-            files: BTreeMap::new(),
+    /// Create a new manifest from a list of paths by reading the contents of each file.
+    pub fn from_paths<I>(paths: I, base: &Path) -> Result<Self, Error>
+    where
+        I: Iterator<Item = PathBuf>,
+    {
+        let mut resources: Vec<ResourceHeaders> = Vec::new();
+        for path in paths {
+            let mut bytes = vec![];
+            let mut file = File::open(&path)?;
+            file.read_to_end(&mut bytes)?;
+            let relative_path = path.strip_prefix(&base)?.to_path_buf();
+            let cbor_bytes = Bytes(bytes);
+            let headers = ResourceHeaders::for_value(&cbor_bytes, relative_path, None)?;
+            resources.push(headers);
         }
+        Ok(Self { resources })
     }
 
-    /// Create an archive from a directory
-    pub fn from_dir(dir: &Path) -> Result<Self, Error> {
-        let mut archive = Manifest::new();
-        archive.add_dir(dir)?;
-        Ok(archive)
-    }
-
-    /// Add a file entry by reading from the file system, generating a CID.
-    /// Uses file path (relative to working directory) as the display name.
-    pub fn add_file(&mut self, path: &Path) -> Result<(), Error> {
-        let mut file = File::open(path)?;
-        let link = Link::read_from(&mut file)?;
-        self.files.insert(path.to_owned(), link);
-        Ok(())
-    }
-
-    /// Add all files in a directory (recursive)
-    pub fn add_dir(&mut self, dir: &Path) -> Result<(), Error> {
-        for path in walk_files(dir)? {
-            self.add_file(&path)?;
+    pub fn keyed_by_path(self) -> HashMap<PathBuf, ResourceHeaders> {
+        let mut index = HashMap::new();
+        for resource in self.resources {
+            index.insert(resource.path.clone(), resource);
         }
-        Ok(())
-    }
-}
-
-impl TryFrom<Manifest> for Cid {
-    type Error = Error;
-
-    fn try_from(value: Manifest) -> Result<Self, Self::Error> {
-        let bytes = serde_ipld_dagcbor::to_vec(&value)?;
-        let archive_cid = cid::read_into_cid_v1_cbor(&mut bytes.as_slice())?;
-        Ok(archive_cid)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Link {
-    pub content: Cid,
-    pub location: Vec<Url>,
-}
-
-impl Link {
-    pub fn new(content: Cid, location: Vec<Url>) -> Self {
-        Link { content, location }
+        index
     }
 
-    /// Read link from reader
-    pub fn read_from<R: Read>(reader: &mut R) -> Result<Self, Error> {
-        let cid = read_into_cid_v1_raw(reader)?;
-        let link = Link::new(cid, Vec::new());
-        Ok(link)
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("CID error: {0}")]
-    Cid(#[from] cid::Error),
-    #[error("CBOR encode error: {0}")]
-    CborEncode(#[from] serde_ipld_dagcbor::EncodeError<TryReserveError>),
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_try_from_archive_to_cid() {
-        let mut archive = Manifest::new();
-
-        // Create a mock file entry
-        let link = Link {
-            content: Cid::try_from("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")
-                .unwrap(),
-            location: Vec::new(),
-        };
-
-        archive.files.insert("test-file".into(), link);
-
-        // Convert archive to CID
-        let cid = Cid::try_from(archive).unwrap();
-        assert!(cid.to_string().starts_with("bafy"));
+    /// Get a hashmap resources, keyed by
+    pub fn keyed_by_src(self) -> HashMap<Hash, ResourceHeaders> {
+        let mut index = HashMap::new();
+        for resource in self.resources {
+            index.insert(resource.src.clone(), resource);
+        }
+        index
     }
 }

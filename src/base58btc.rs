@@ -15,3 +15,16 @@ pub fn decode(s: &str) -> Result<Vec<u8>, DecodeError> {
     let bytes = bs58::decode(s).into_vec()?;
     Ok(bytes)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_roundtrip() {
+        let test = b"hello world".to_vec();
+        let encoded = encode(&test);
+        let decoded = decode(&encoded).unwrap();
+        assert_eq!(test, decoded);
+    }
+}
