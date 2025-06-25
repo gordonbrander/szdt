@@ -69,7 +69,7 @@ fn archive_cmd(dir: PathBuf, private_key_base58: String) {
     println!("Issuer: {}", key_material.did());
     println!("Manifest:");
     for resource in archive_receipt.manifest.resources {
-        println!("{} {}", resource.path.to_string_lossy(), resource.src);
+        println!("{}\t{}", resource.path.to_string_lossy(), resource.src);
     }
 }
 
