@@ -1,12 +1,12 @@
 use clap::{Parser, Subcommand};
 use std::ffi::OsStr;
+use std::path::Path;
 use std::path::PathBuf;
-use szdt::base58btc;
 use szdt::config;
-use szdt::ed25519_key_material::Ed25519KeyMaterial;
 use szdt::key_storage::InsecureKeyStorage;
 use szdt::mnemonic::Mnemonic;
 use szdt::szdt::{archive, unarchive};
+use szdt::text::truncate_string_left;
 
 /// Shared CLI configuration
 struct Config {
@@ -44,17 +44,15 @@ enum Commands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
 
-        #[arg(help = "Private key to sign archive with")]
+        #[arg(help = "Key to sign archive with")]
         #[arg(
-            long_help = "Private key to sign archive with. The private key should be a Base-32 encoded Ed25519 key. You can generate a key using the `genkey` command.)"
+            long_help = "Nickname of the key to sign the archive with. You can generate a signing key with `szdt key create`."
         )]
         #[arg(short, long)]
-        #[arg(value_name = "KEY")]
-        privkey: String,
+        #[arg(value_name = "NICKNAME")]
+        #[arg(default_value = "default")]
+        sign: String,
     },
-
-    #[command(about = "Generate a private key")]
-    Genkey {},
 
     #[command(about = "Create and manage signing keys")]
     Key {
@@ -68,9 +66,9 @@ enum KeyCommands {
     #[command(about = "Create a new keypair")]
     Create {
         #[arg(help = "Nickname for key")]
-        #[arg(value_name = "NAME")]
+        #[arg(value_name = "NICKNAME")]
         #[arg(default_value = "default")]
-        name: String,
+        nickname: String,
     },
 
     #[command(about = "List all signing keys")]
@@ -80,31 +78,41 @@ enum KeyCommands {
     Delete {
         #[arg(help = "Key nickname")]
         #[arg(value_name = "NAME")]
-        name: String,
+        nickname: String,
     },
 }
 
-fn archive_cmd(dir: PathBuf, private_key_base58: String) {
+fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
     let default_file_name = OsStr::new("archive");
 
     let file_name =
         PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("szdt");
 
-    let private_key_bytes =
-        base58btc::decode(&private_key_base58).expect("Secret key base encoding is invalid");
-
-    let key_material = Ed25519KeyMaterial::try_from_private_key(&private_key_bytes)
-        .expect("Private key is not valid");
+    let key_material = config
+        .key_storage
+        .key(nickname)
+        .expect("Unable to access key")
+        .expect("No key with that nickname. Tip: create a key using `szdt key create`.");
 
     let archive_receipt =
         archive(&dir, &file_name, &key_material).expect("Unable to create archive");
 
-    println!("Archive created: {}", file_name.display());
-    println!("Issuer: {}", key_material.did());
-    println!("Manifest:");
-    for resource in archive_receipt.manifest.resources {
-        println!("{}\t{}", resource.path.to_string_lossy(), resource.src);
+    println!("{:<12} {}", "Archive:", file_name.display());
+    println!("{:<12} {} ({})", "Issuer:", key_material.did(), nickname);
+    println!("");
+    println!("{:<32} | {:<52}", "File", "Hash");
+    for resource in &archive_receipt.manifest.resources {
+        println!(
+            "{:<32} | {:<52}",
+            truncate_string_left(&resource.path.to_string_lossy(), 32),
+            resource.src
+        );
     }
+    println!("");
+    println!(
+        "Archived {} files",
+        &archive_receipt.manifest.resources.len()
+    );
 }
 
 fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
@@ -120,12 +128,6 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
 
     println!("Unpacked archive");
-}
-
-fn genkey() {
-    let key_material = Ed25519KeyMaterial::generate();
-    let mnemonic = Mnemonic::try_from(&key_material).expect("Unable to generate mnemonic");
-    println!("{}", mnemonic);
 }
 
 fn create_key_cmd(config: &Config, nickname: &str) {
@@ -163,13 +165,12 @@ fn main() {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Archive { dir, privkey } => archive_cmd(dir, privkey),
+        Commands::Archive { dir, sign } => archive_cmd(&config, &dir, &sign),
         Commands::Unarchive { file, dir } => unarchive_cmd(dir, file),
-        Commands::Genkey {} => genkey(),
         Commands::Key { command } => match command {
-            KeyCommands::Create { name } => create_key_cmd(&config, &name),
+            KeyCommands::Create { nickname } => create_key_cmd(&config, &nickname),
             KeyCommands::List {} => list_keys_cmd(&config),
-            KeyCommands::Delete { name } => delete_key_cmd(&config, &name),
+            KeyCommands::Delete { nickname } => delete_key_cmd(&config, &nickname),
         },
     }
 }

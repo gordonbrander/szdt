@@ -15,4 +15,5 @@ pub mod manifest;
 pub mod memo;
 pub mod mnemonic;
 pub mod szdt;
+pub mod text;
 pub mod util;
