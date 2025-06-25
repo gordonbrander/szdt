@@ -62,7 +62,7 @@ pub enum Error {
     Eof,
     #[error("Value error: {0}")]
     Value(String),
-    #[error("File system access error: {0}")]
+    #[error("File system error: {0}")]
     Fs(String),
 }
 

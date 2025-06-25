@@ -68,6 +68,13 @@ pub struct UnarchiveReceipt {
 
 /// Unpack an archive into a directory
 pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceipt, Error> {
+    if dir.exists() {
+        return Err(Error::Fs(format!(
+            "Directory exists: {}",
+            dir.to_string_lossy()
+        )));
+    }
+
     let archive_file = BufReader::new(File::open(archive_file_path)?);
     let mut archive_reader = CborSeqReader::new(archive_file);
 

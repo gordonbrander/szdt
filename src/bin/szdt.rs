@@ -125,9 +125,24 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
             .unwrap_or("archive".into()),
     };
 
-    unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
+    let receipt = unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
+    let issuer_did_string = receipt
+        .memo
+        .protected
+        .iss
+        .map(|iss| iss.to_string())
+        .unwrap_or("None".to_string());
 
     println!("Unpacked archive");
+    println!("Issuer: {}", issuer_did_string);
+    println!("Signature verified... OK");
+    println!("Archive integrity verified... OK");
+    println!("");
+    println!(
+        "Unarchived {} files to {}",
+        receipt.manifest.resources.len(),
+        archive_dir.display()
+    );
 }
 
 fn create_key_cmd(config: &Config, nickname: &str) {
