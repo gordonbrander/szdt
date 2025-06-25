@@ -23,6 +23,18 @@ fn _walk_files(paths: &mut Vec<PathBuf>, path: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
+/// List all files in a directory (non-recursive).
+pub fn list_files(path: &Path) -> Result<Vec<PathBuf>, io::Error> {
+    let mut paths = Vec::new();
+    for child in fs::read_dir(path)? {
+        let child = child?;
+        if child.file_type()?.is_file() {
+            paths.push(child.path());
+        }
+    }
+    Ok(paths)
+}
+
 /// Write file to a path, creating parent directories if necessary.
 pub fn write_file_deep<P: AsRef<Path>, C: AsRef<[u8]>>(
     path: P,

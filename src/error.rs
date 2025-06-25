@@ -42,10 +42,12 @@ pub enum Error {
     Ed25519(#[from] ed25519::Error),
     #[error("DID error: {0}")]
     Did(#[from] did::Error),
+    #[error("BIP39 error: {0}")]
+    Bip39(#[from] bip39::Error),
     #[error("Error stripping path prefix")]
     StripPrefix(#[from] std::path::StripPrefixError),
-    #[error("Signing error: {0}")]
-    Signing(String),
+    #[error("Private key missing: {0}")]
+    PrivateKeyMissing(String),
     #[error("Archive integrity error: {0}")]
     IntegrityError(String),
     #[error("Memo issuer DID is missing")]
@@ -60,6 +62,8 @@ pub enum Error {
     Eof,
     #[error("Value error: {0}")]
     Value(String),
+    #[error("File system access error: {0}")]
+    Fs(String),
 }
 
 impl From<serde_ipld_dagcbor::DecodeError<std::io::Error>> for Error {

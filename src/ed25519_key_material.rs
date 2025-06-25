@@ -1,9 +1,10 @@
 use crate::did::DidKey;
 use crate::ed25519::{
-    PrivateKey, PublicKey, derive_public_key, generate_keypair, into_private_key, into_public_key,
-    sign, verify,
+    PrivateKey, PublicKey, derive_public_key, generate_keypair, sign, to_private_key,
+    to_public_key, verify,
 };
 use crate::error::Error;
+use crate::mnemonic::Mnemonic;
 
 /// Wraps ed25519 key material, allowing you to
 /// - sign and verify
@@ -25,7 +26,7 @@ impl Ed25519KeyMaterial {
 
     /// Initialize from private key bytes
     pub fn try_from_private_key(private_key: &[u8]) -> Result<Self, Error> {
-        let private_key = into_private_key(private_key)?;
+        let private_key = to_private_key(private_key)?;
         let public_key = derive_public_key(&private_key)?;
         Ok(Self {
             public_key: public_key,
@@ -35,16 +36,21 @@ impl Ed25519KeyMaterial {
 
     /// Construct key material from a publick key, without a private key
     pub fn try_from_public_key(pubkey: &[u8]) -> Result<Self, Error> {
-        let public_key = into_public_key(pubkey)?;
+        let public_key = to_public_key(pubkey)?;
         Ok(Self {
             public_key,
             private_key: None,
         })
     }
 
+    /// Get the private key portion
+    pub fn private_key(&self) -> Option<PrivateKey> {
+        self.private_key
+    }
+
     /// Get the public key portion
-    pub fn public_key(&self) -> Vec<u8> {
-        self.public_key.to_vec()
+    pub fn public_key(&self) -> PublicKey {
+        self.public_key
     }
 
     pub fn did(&self) -> DidKey {
@@ -60,7 +66,7 @@ impl Ed25519KeyMaterial {
                 let sig = sign(payload, private_key)?;
                 Ok(sig)
             }
-            None => Err(Error::Signing(
+            None => Err(Error::PrivateKeyMissing(
                 "Can't sign payload. No private key.".to_string(),
             )),
         }
@@ -70,6 +76,29 @@ impl Ed25519KeyMaterial {
     pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
         verify(payload, signature, &self.public_key)?;
         Ok(())
+    }
+}
+
+impl TryFrom<&Mnemonic> for Ed25519KeyMaterial {
+    type Error = Error;
+
+    fn try_from(value: &Mnemonic) -> Result<Self, Self::Error> {
+        let entropy = value.to_entropy();
+        Self::try_from_private_key(&entropy)
+    }
+}
+
+impl TryFrom<&Ed25519KeyMaterial> for Mnemonic {
+    type Error = Error;
+
+    fn try_from(key_material: &Ed25519KeyMaterial) -> Result<Self, Self::Error> {
+        let Some(private_key) = key_material.private_key() else {
+            return Err(Error::PrivateKeyMissing(
+                "Cannot generate mnemonic".to_string(),
+            ));
+        };
+        let mnemonic = Mnemonic::from_entropy(private_key.as_slice())?;
+        Ok(mnemonic)
     }
 }
 

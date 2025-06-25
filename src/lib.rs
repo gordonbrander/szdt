@@ -1,6 +1,7 @@
 pub mod base58btc;
 pub mod bytes;
 pub mod cbor_seq;
+pub mod config;
 pub mod did;
 pub mod ed25519;
 pub mod ed25519_key_material;
@@ -8,8 +9,10 @@ pub mod error;
 pub mod file;
 pub mod hash;
 pub mod hashseq;
+pub mod key_storage;
 pub mod link;
 pub mod manifest;
 pub mod memo;
+pub mod mnemonic;
 pub mod szdt;
 pub mod util;

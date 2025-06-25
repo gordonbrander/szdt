@@ -19,7 +19,7 @@ pub struct DidKey(PublicKey);
 
 impl DidKey {
     pub fn new(pubkey_bytes: &[u8]) -> Result<Self, Error> {
-        let pubkey = ed25519::into_public_key(pubkey_bytes)?;
+        let pubkey = ed25519::to_public_key(pubkey_bytes)?;
         Ok(DidKey(pubkey))
     }
 
@@ -30,7 +30,21 @@ impl DidKey {
 
 impl std::fmt::Display for DidKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from(self))
+        // Convert public key to multibase encoded string
+        let mut multicodec_bytes = vec![MULTICODEC_ED25519_PUB_PREFIX];
+        multicodec_bytes.extend_from_slice(&self.0);
+
+        // Encode with multibase (Base58BTC, prefix 'z')
+        let multibase_encoded = base58btc::encode(multicodec_bytes);
+
+        // Construct the did:key
+        write!(f, "{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
+    }
+}
+
+impl From<&DidKey> for String {
+    fn from(did_key: &DidKey) -> Self {
+        did_key.to_string()
     }
 }
 
@@ -57,20 +71,6 @@ impl TryFrom<&str> for DidKey {
 
         // Extract the public key
         DidKey::new(&decoded_bytes[1..])
-    }
-}
-
-impl From<&DidKey> for String {
-    fn from(did_key: &DidKey) -> Self {
-        // Convert public key to multibase encoded string
-        let mut multicodec_bytes = vec![MULTICODEC_ED25519_PUB_PREFIX];
-        multicodec_bytes.extend_from_slice(&did_key.0);
-
-        // Encode with multibase (Base58BTC, prefix 'z')
-        let multibase_encoded = base58btc::encode(multicodec_bytes);
-
-        // Construct the did:key
-        format!("{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
     }
 }
 

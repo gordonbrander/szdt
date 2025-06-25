@@ -22,16 +22,16 @@ pub fn generate_keypair() -> (PublicKey, PrivateKey) {
 
 /// Get the public key from a private key.
 pub fn derive_public_key(private_key: &[u8]) -> Result<PublicKey, Error> {
-    let private_key = into_private_key(private_key)?;
+    let private_key = to_private_key(private_key)?;
     let signing_key = SigningKey::from_bytes(&private_key);
-    let public_key = into_public_key(&signing_key.verifying_key().to_bytes())?;
+    let public_key = to_public_key(&signing_key.verifying_key().to_bytes())?;
     Ok(public_key)
 }
 
 /// Sign a payload with a private key.
 /// Returns the signature as a Vec<u8>.
 pub fn sign(payload: &[u8], private_key: &[u8]) -> Result<Vec<u8>, Error> {
-    let private_key = into_private_key(private_key)?;
+    let private_key = to_private_key(private_key)?;
     let signing_key = SigningKey::from_bytes(&private_key);
     let signature = signing_key.sign(payload);
     Ok(signature.to_bytes().to_vec())
@@ -40,7 +40,7 @@ pub fn sign(payload: &[u8], private_key: &[u8]) -> Result<Vec<u8>, Error> {
 /// Verify a signature with a public key.
 /// Returns an error if the signature is invalid.
 pub fn verify(payload: &[u8], signature: &[u8], public_key: &[u8]) -> Result<(), Error> {
-    let public_key = into_public_key(public_key)?;
+    let public_key = to_public_key(public_key)?;
     let signature = Signature::from_slice(signature)?;
     let verifying_key = VerifyingKey::from_bytes(&public_key)?;
     verifying_key.verify(payload, &signature)?;
@@ -49,7 +49,7 @@ pub fn verify(payload: &[u8], signature: &[u8], public_key: &[u8]) -> Result<(),
 
 /// Convert a Vec<u8> to PublicKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn into_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
+pub fn to_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
     if bytes.len() != PUBLIC_KEY_LENGTH {
         return Err(Error::InvalidKey(format!(
             "Public key must be {} bytes, got {}",
@@ -65,7 +65,7 @@ pub fn into_public_key(bytes: &[u8]) -> Result<PublicKey, Error> {
 
 /// Convert a Vec<u8> to PrivateKey.
 /// Returns an error if the input is not exactly 32 bytes.
-pub fn into_private_key(bytes: &[u8]) -> Result<SecretKey, Error> {
+pub fn to_private_key(bytes: &[u8]) -> Result<SecretKey, Error> {
     if bytes.len() != SECRET_KEY_LENGTH {
         return Err(Error::InvalidKey(format!(
             "Private key must be {} bytes, got {}",
@@ -95,12 +95,12 @@ mod tests {
     fn test_vec_to_public_key() {
         // Valid case
         let valid_bytes = vec![0u8; PUBLIC_KEY_LENGTH];
-        let result = into_public_key(&valid_bytes);
+        let result = to_public_key(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; PUBLIC_KEY_LENGTH - 1];
-        let result = into_public_key(&invalid_bytes);
+        let result = to_public_key(&invalid_bytes);
         assert!(result.is_err());
     }
 
@@ -108,12 +108,12 @@ mod tests {
     fn test_vec_to_private_key() {
         // Valid case
         let valid_bytes = vec![0u8; SECRET_KEY_LENGTH];
-        let result = into_private_key(&valid_bytes);
+        let result = to_private_key(&valid_bytes);
         assert!(result.is_ok());
 
         // Invalid case - wrong length
         let invalid_bytes = vec![0u8; SECRET_KEY_LENGTH - 1];
-        let result = into_private_key(&invalid_bytes);
+        let result = to_private_key(&invalid_bytes);
         assert!(result.is_err());
     }
 

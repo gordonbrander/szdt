@@ -4,6 +4,19 @@ Reverse-chronological.
 
 ---
 
+Noosphere stored the private key in:
+
+```
+~/.noosphere/keys/<keyname>.public
+~/.noosphere/keys/<keyname>.private
+```
+
+With
+- private key being stored as a mnemonic
+- public key stored as `did:key`
+
+---
+
 How are keys sorted in...
 
 - CBOR Core: bytewise lexicographic order of their deterministic encoding <https://www.ietf.org/archive/id/draft-rundgren-cbor-core-11.html#section-2.2>
