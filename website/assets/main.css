@@ -184,6 +184,13 @@ h5 {
     }
 }
 
+.lg-invisible {
+    @media (min-width: 1200px) {
+        visibility: hidden !important;
+        pointer-events: none;
+    }
+}
+
 .sticky {
     position: sticky;
 }
