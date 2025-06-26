@@ -8,19 +8,43 @@ title: SZDT
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{title}}</title>
         <link rel="stylesheet" href="/assets/main.css" />
+        <script type="module" src="/assets/main.js"></script>
     </head>
     <body>
-        <div class="page">
-            <div class="page--main">
-                <div class="content">
-                    {{ content }}
-                </div>
-            </div>
-            <nav class="page--sidebar sections">
-                <header>
-                    <h1>SZDT</h1>
+        <div class="page" id="page">
+            <section class="page-main">
+                <header class="page-main-header menu lg-hidden">
+                    <nav class="menu-left">
+                        <li>
+                            <a href="#" class="lockup">
+                                <img class="img" src="/assets/logo2.png" height="28" width="32"/>
+                                <b class="text">SZDT</b>
+                            </a>
+                        </li>
+                    </nav>
+                    <nav class="menu-right">
+                        <li><a id="menu" class="btn-icon" href="#"><img src="/assets/menu_24dp_000_FILL0_wght400_GRAD0_opsz24.svg"/></a></li>
+                    </nav>
                 </header>
-                <div class="sidebar--main sections">
+                <div class="page-main-main">
+                    <div class="content">
+                        {{ content }}
+                    </div>
+                </div>
+            </section>
+            <nav class="page-sidebar">
+                <header class="page-sidebar-header menu">
+                    <nav class="menu-left">
+                        <a href="#" class="lockup">
+                            <img class="img" src="/assets/logo2.png" height="28" width="32"/>
+                            <b class="text">SZDT</b>
+                        </a>
+                    </nav>
+                    <nav class="menu-right">
+                        <li class="lg-hidden"><a id="close" class="btn-icon" href="#"><img src="/assets/close_24dp_000_FILL0_wght400_GRAD0_opsz24.svg"/></a></li>
+                    </nav>
+                </header>
+                <div class="page-sidebar-main sections">
                     <aside class="group">
                         <h1>Overview</h1>
                         <ul>

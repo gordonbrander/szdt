@@ -7,9 +7,9 @@ title: SZDT
 
 # SZDT
 
-**S**igned **Z**ero-trust **D**a**T**a
+**S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed .car files for censorship-resistant publishing and archiving. Pronounced "Samizdat".
+Signed CBOR for censorship-resistant data archives.
 
 <div class="hstack gap">
     <button class="btn primary">Download</button>

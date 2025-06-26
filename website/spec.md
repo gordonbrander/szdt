@@ -7,7 +7,7 @@ title: SZDT Specification
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR sequences for censorship-resistant data archiving and publishing.
+Signed CBOR for censorship-resistant data archives.
 
 ## Motivation
 
