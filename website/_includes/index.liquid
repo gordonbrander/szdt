@@ -7,6 +7,7 @@ title: SZDT
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{title}}</title>
+        <link rel="icon" href="{{ "assets/favicon.svg" | prepend: site.url }}" />
         <link rel="stylesheet" href="{{ "assets/main.css" | prepend: site.url }}" />
         <script type="module" src="{{ "assets/main.js" | prepend: site.url }}"></script>
     </head>
@@ -48,9 +49,7 @@ title: SZDT
                     <aside class="group">
                         <h1>Overview</h1>
                         <ul>
-                            <li><a href="{{ "/" | prepend: site.url }}">Introduction</a></li>
-                            <li><a href="{{ "overview/" | prepend: site.url }}">How it works</a></li>
-                            <li><a href="{{ "comparisons/" | prepend: site.url }}">Comparisons</a></li>
+                            <li><a href="{{ site.url }}">Introduction</a></li>
                             <li><a href="{{ "download/" | prepend: site.url }}">Download</a></li>
                             <li><a href="{{ "faq/" | prepend: site.url }}">FAQ</a></li>
                         </ul>
@@ -66,7 +65,8 @@ title: SZDT
                     <aside class="group">
                         <h1>Specs</h1>
                         <ul>
-                            <li><a href="{{ "spec/" | prepend: site.url }}">SZDT Specification</a></li>
+                            <li><a href="{{ "specs/memos/" | prepend: site.url }}">Memos</a></li>
+                            <li><a href="{{ "specs/archives/" | prepend: site.url }}">Archives</a></li>
                         </ul>
                     </aside>
                     <aside class="group">
