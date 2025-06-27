@@ -68,14 +68,6 @@
         font-size: inherit;
         line-height: inherit;
     }
-
-    a[rel="external"] {
-        background-image: url(./link-external-small-ltr-progressive.svg);
-        background-position: center right;
-        background-repeat: no-repeat;
-        background-size: 0.8em;
-        padding-right: 1.2em;
-    }
 }
 
 @layer content {
@@ -209,6 +201,14 @@
             overflow-x: auto;
         }
     }
+}
+
+.external {
+    background-image: url(./link-external-small-ltr-progressive.svg);
+    background-position: center right;
+    background-repeat: no-repeat;
+    background-size: 0.8em;
+    padding-right: 1.2em;
 }
 
 .fg2 {
