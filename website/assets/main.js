@@ -9,9 +9,11 @@ export const on = (element, event, callback, options) => {
 };
 
 on(_("#menu"), "pointerdown", (event) => {
+  event.preventDefault();
   _("#page").classList.toggle("sidebar-open");
 });
 
 on(_("#close"), "pointerdown", (event) => {
+  event.preventDefault();
   _("#page").classList.remove("sidebar-open");
 });
