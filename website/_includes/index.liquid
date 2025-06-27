@@ -7,8 +7,8 @@ title: SZDT
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{title}}</title>
-        <link rel="stylesheet" href="/assets/main.css" />
-        <script type="module" src="/assets/main.js"></script>
+        <link rel="stylesheet" href="{{ "assets/main.css" | prepend: site.url }}" />
+        <script type="module" src="{{ "assets/main.js" | prepend: site.url }}"></script>
     </head>
     <body>
         <div class="page" id="page">
@@ -16,8 +16,8 @@ title: SZDT
                 <header class="page-main-header menu lg-invisible">
                     <nav class="menu-left">
                         <li>
-                            <a href="#" class="lockup">
-                                <img class="img" src="/assets/logo2.png" height="28" width="32"/>
+                            <a href="{{ site.url }}" class="lockup">
+                                <img class="img" src="{{ "assets/logo2.png" | prepend: site.url }}" height="28" width="32"/>
                                 <b class="text">SZDT</b>
                             </a>
                         </li>
@@ -35,42 +35,46 @@ title: SZDT
             <nav class="page-sidebar">
                 <header class="page-sidebar-header menu">
                     <nav class="menu-left">
-                        <a href="#" class="lockup">
-                            <img class="img" src="/assets/logo2.png" height="28" width="32"/>
+                        <a href="{{ site.url }}" class="lockup">
+                            <img class="img" src="{{ "assets/logo2.png" | prepend: site.url }}" height="28" width="32"/>
                             <b class="text">SZDT</b>
                         </a>
                     </nav>
                     <nav class="menu-right">
-                        <li class="lg-hidden"><a id="close" class="btn-icon" href="#"><img src="/assets/close_24dp_000_FILL0_wght400_GRAD0_opsz24.svg"/></a></li>
+                        <li class="lg-hidden"><a id="close" class="btn-icon" href="#"><img src="{{ "assets/close_24dp_000_FILL0_wght400_GRAD0_opsz24.svg" | prepend: site.url }}" alt="Close" /></a></li>
                     </nav>
                 </header>
                 <div class="page-sidebar-main sections">
                     <aside class="group">
                         <h1>Overview</h1>
                         <ul>
-                            <li><a href="#">What is it?</a></li>
-                            <li><a href="#">How does it work?</a></li>
-                            <li><a href="#">Comparisons</a></li>
+                            <li><a href="{{ "/" | prepend: site.url }}">Introduction</a></li>
+                            <li><a href="{{ "overview/" | prepend: site.url }}">How it works</a></li>
+                            <li><a href="{{ "comparisons/" | prepend: site.url }}">Comparisons</a></li>
+                            <li><a href="{{ "download/" | prepend: site.url }}">Download</a></li>
+                            <li><a href="{{ "faq/" | prepend: site.url }}">FAQ</a></li>
                         </ul>
                     </aside>
                     <aside class="group">
                         <h1>Guides</h1>
                         <ul>
-                            <li><a href="#">Quick start</a></li>
-                            <li><a href="#">Web Editor</a></li>
-                            <li><a href="#">Archiving/unarchiving</a></li>
-                            <li><a href="#">Keys and signing</a></li>
-                            <li><a href="#">Adding metadata</a></li>
-                            <li><a href="#">Hosting archives</a></li>
+                            <li><a href="{{ "guides/quick-start/" | prepend: site.url }}">Quick start</a></li>
+                            <li><a href="{{ "guides/archives/" | prepend: site.url }}">Archiving/unarchiving</a></li>
+                            <li><a href="{{ "guides/keys/" | prepend: site.url }}">Keys and signing</a></li>
                         </ul>
                     </aside>
                     <aside class="group">
-                        <h1>Code</h1>
+                        <h1>Specs</h1>
                         <ul>
-                            <li><a href="#">Specification</a></li>
-                            <li><a href="#">API</a></li>
-                            <li><a href="#">crates.io</a></li>
-                            <li><a href="#">github.com</a></li>
+                            <li><a href="{{ "spec/" | prepend: site.url }}">SZDT Specification</a></li>
+                        </ul>
+                    </aside>
+                    <aside class="group">
+                        <h1>Developers</h1>
+                        <ul>
+                            <li><a rel="external" href="#">Rust API</a></li>
+                            <li><a rel="external" href="#">crates.io</a></li>
+                            <li><a rel="external" href="https://github.com/gordonbrander/szdt">Github</a></li>
                         </ul>
                     </aside>
                 </div>

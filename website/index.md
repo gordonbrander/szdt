@@ -9,19 +9,21 @@ title: SZDT
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data archives.
+Signed CBOR for censorship-resistant data archives. SZDT is a simple format for publishing decentralized data.
 
 <div class="hstack gap">
-    <button class="btn primary">Download</button>
-    <button class="btn">Web Editor</button>
-    <button class="btn">Spec</button>
-    <button class="btn">Source code</button>
+    <a class="btn primary" href="{{ "download/" | prepend: site.url }}">Download</a>
+    <a class="btn" href="{{ "guides/quick-start/" | prepend: site.url }}">Quick start</a>
+    <a class="btn" href="{{ "spec/" | prepend: site.url }}">Spec</a>
+    <a class="btn" href="https://github.com/gordonbrander/szdt">GitHub</a>
 </div>
 
 ## Supporters
 
 <div class="hstack gap">
-    <a rel="external" href="https://cosmos-institute.org/"><img alt="Cosmos Institute" src="/media/cosmos-institute.svg" width=200 /></a>
+    <a rel="external" href="https://cosmos-institute.org/">
+        <img class="img"  alt="Cosmos Institute" src="/media/cosmos-institute.svg" width="200" height="50" />
+    </a>
 </div>
 
 ## Motivation
