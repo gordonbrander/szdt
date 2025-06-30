@@ -8,6 +8,9 @@ title: SZDT
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{title}}</title>
         <link rel="icon" href="{{ "assets/favicon.svg" | prepend: site.url }}" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&family=Fira+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="{{ "assets/main.css" | prepend: site.url }}" />
         <script type="module" src="{{ "assets/main.js" | prepend: site.url }}"></script>
     </head>
@@ -49,7 +52,6 @@ title: SZDT
                     <aside class="group">
                         <h1>Overview</h1>
                         <ul>
-                            <li><a href="{{ site.url }}">Introduction</a></li>
                             <li><a href="{{ "download/" | prepend: site.url }}">Download</a></li>
                             <li><a href="{{ "faq/" | prepend: site.url }}">FAQ</a></li>
                         </ul>
@@ -65,13 +67,16 @@ title: SZDT
                     <aside class="group">
                         <h1>Specs</h1>
                         <ul>
+                            <li><a href="{{ "specs/explainer/" | prepend: site.url }}">Explainer</a></li>
                             <li><a href="{{ "specs/memos/" | prepend: site.url }}">Memos</a></li>
+                            <li><a href="{{ "specs/sequences/" | prepend: site.url }}">Sequences</a></li>
                             <li><a href="{{ "specs/archives/" | prepend: site.url }}">Archives</a></li>
                         </ul>
                     </aside>
                     <aside class="group">
                         <h1>Developers</h1>
                         <ul>
+                            <li><a rel="external" class="external" href="{{ "dev/" | prepend: site.url }}">Developing</a></li>
                             <li><a rel="external" class="external" href="#">Rust API</a></li>
                             <li><a rel="external" class="external" href="#">crates.io</a></li>
                             <li><a rel="external" class="external" href="https://github.com/gordonbrander/szdt">GitHub</a></li>

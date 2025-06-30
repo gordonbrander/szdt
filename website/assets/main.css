@@ -1,7 +1,7 @@
 :root {
     --bg: #d0d0d0;
     --bg2: #c6c6c6;
-    --fg: #444;
+    --fg: #333;
     --fg2: #777;
     --accent: rgb(0, 93, 147);
     --border-color: #b0b0b0;
@@ -10,12 +10,14 @@
     --pad: calc(var(--u) * 12);
     --nav-gap: calc(var(--u) * 6);
     --measure: 40em;
-    --font-family: "CommitMono", serif;
-    --body-line: calc(var(--u) * 7);
-    --body-size: calc(var(--body-line) / 1.5);
-    --content-gap: var(--body-line);
-    --lg-line: calc(var(--u) * 8);
+    --font-family: "Fira Sans", sans-serif;
+    --body-line: calc(var(--u) * 8);
+    --body-size: calc(var(--body-line) / 1.7);
+    --lg-line: calc(var(--u) * 9);
     --lg-size: calc(var(--lg-line) / 1.2);
+    --md-line: calc(var(--u) * 9);
+    --md-size: calc(var(--lg-line) / 1.7);
+    --content-gap: var(--body-line);
     --radius: calc(var(--u) * 4);
     --lg-breakpoint: 1200px;
     --main-padding-x: calc(var(--u) * 24);
@@ -68,6 +70,11 @@
         font-size: inherit;
         line-height: inherit;
     }
+
+    strong,
+    b {
+        font-weight: 500;
+    }
 }
 
 @layer content {
@@ -78,10 +85,10 @@
             minmax(0, var(--measure))
             1fr
             var(--main-padding-x);
-        row-gap: var(--content-gap);
 
         & > * {
             grid-column: 2;
+            margin-bottom: var(--content-gap);
         }
 
         & > .full {
@@ -92,18 +99,28 @@
         & > h1 {
             font-size: var(--lg-size);
             line-height: var(--lg-line);
-            font-weight: 500;
-        }
-
-        & > :is(h2, h3, h4, h5) {
-            color: var(--fg2);
-            text-transform: uppercase;
             font-weight: normal;
-            line-height: var(--body-line);
         }
 
-        & > :is(h2, h3, h4, h5):not(:first-child) {
+        & > h2 {
+            color: var(--fg2);
+            font-weight: 500;
+            font-size: var(--body-size);
+            line-height: var(--body-line);
+            text-transform: uppercase;
+            margin-bottom: calc(var(--content-gap) / 2);
+            letter-spacing: 0.02em;
+        }
+
+        & > :is(h1, h2):not(:first-child) {
             margin-top: var(--content-gap);
+        }
+
+        & > :is(h3, h4, h5) {
+            font-weight: 500;
+            font-size: var(--body-size);
+            line-height: var(--body-line);
+            margin-bottom: calc(var(--content-gap) / 2);
         }
 
         & > img {
@@ -129,7 +146,7 @@
             display: flex;
             flex-direction: column;
             padding-left: 1em;
-            gap: calc(var(--u) * 3);
+            gap: calc(var(--u) * 2);
 
             > li {
                 list-style: disc;
@@ -197,8 +214,14 @@
             border: 1px solid var(--border-color);
             padding: calc((var(--u) * 4));
             border-radius: calc(var(--u) * 2);
-            margin: calc(var(--u) * 2) 0;
             overflow-x: auto;
+        }
+
+        code {
+            font-family: "Fira Mono";
+            background-color: var(--bg2);
+            padding: calc(var(--u) / 2) var(--u);
+            border-radius: var(--u);
         }
     }
 }
@@ -375,12 +398,13 @@
         font-weight: normal;
         line-height: inherit;
         text-transform: uppercase;
+        letter-spacing: 0.02em;
     }
 
     & > ul {
         display: flex;
         flex-direction: column;
-        gap: calc(var(--u) * 2);
+        gap: calc(var(--u) * 1);
     }
 }
 
