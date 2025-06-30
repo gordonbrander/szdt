@@ -1,0 +1,28 @@
+{
+  "name": "szdt-website",
+  "version": "0.0.1",
+  "description": "Website for SZDT",
+  "homepage": "https://github.com/gordonbrander/szdt#readme",
+  "bugs": {
+    "url": "https://github.com/gordonbrander/szdt/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gordonbrander/szdt.git"
+  },
+  "license": "MIT",
+  "author": "Gordon Brander",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx @11ty/eleventy --config=eleventy.config.ts",
+    "serve": "npx @11ty/eleventy --serve --config=eleventy.config.ts",
+    "clean": "rm -rf ../docs"
+  },
+  "dependencies": {
+    "@11ty/eleventy": "^3.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.4"
+  }
+}
