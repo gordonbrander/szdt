@@ -226,6 +226,12 @@
     }
 }
 
+.upper {
+    text-transform: uppercase;
+    font-size: calc(var(--body-size) * 0.95);
+    letter-spacing: 0.02em;
+}
+
 .external {
     background-image: url(./link-external-small-ltr-progressive.svg);
     background-position: center right;
