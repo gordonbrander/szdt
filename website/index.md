@@ -3,7 +3,7 @@ layout: index.liquid
 title: SZDT - Signed Zero-trust DaTa
 ---
 
-<img src="/assets/logo2.png" height="80" />
+<img src="{{site.url}}/assets/logo2.png" height="80" />
 
 # SZDT
 
@@ -21,7 +21,7 @@ Signed CBOR for censorship-resistant data.
 
 <div class="hstack gap">
     <a rel="external" href="https://cosmos-institute.org/">
-        <img class="img"  alt="Cosmos Institute" src="/media/cosmos-institute.svg" width="200" height="50" />
+        <img class="img"  alt="Cosmos Institute" src="{{site.url}}media/cosmos-institute.svg" width="200" height="50" />
     </a>
 </div>
 
