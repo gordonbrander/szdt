@@ -15,7 +15,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "build": "npx @11ty/eleventy --config=eleventy.config.ts",
+    "build:prod": "NODE_ENV=production npx @11ty/eleventy --config=eleventy.config.ts",
+    "build:dev": "npx @11ty/eleventy --config=eleventy.config.ts",
     "serve": "npx @11ty/eleventy --serve --config=eleventy.config.ts",
     "clean": "rm -rf ../docs"
   },
