@@ -94,7 +94,7 @@ impl TryFrom<&Ed25519KeyMaterial> for Mnemonic {
     fn try_from(key_material: &Ed25519KeyMaterial) -> Result<Self, Self::Error> {
         let Some(private_key) = key_material.private_key() else {
             return Err(Error::PrivateKeyMissing(
-                "Cannot generate mnemonic".to_string(),
+                "Can't generate mnemonic. No private key.".to_string(),
             ));
         };
         let mnemonic = Mnemonic::from_entropy(private_key.as_slice())?;

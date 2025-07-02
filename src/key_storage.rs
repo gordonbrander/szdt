@@ -17,6 +17,10 @@ impl InsecureKeyStorage {
         Ok(InsecureKeyStorage { key_storage_dir })
     }
 
+    pub fn key_exists(&self, nickname: &str) -> bool {
+        self.public_key_path(nickname).exists() || self.private_key_path(nickname).exists()
+    }
+
     fn private_key_path(&self, nickname: &str) -> PathBuf {
         self.key_storage_dir
             .join(nickname)
@@ -30,35 +34,63 @@ impl InsecureKeyStorage {
     /// Read key with name, returning Ed25519KeyMaterial with private key
     pub fn key(&self, nickname: &str) -> Result<Option<Ed25519KeyMaterial>, Error> {
         let private_key_path = self.private_key_path(nickname);
-        if !private_key_path.exists() {
-            return Ok(None);
+        // Load from private key if it exists
+        if private_key_path.exists() {
+            let mnemonic_string = fs::read_to_string(private_key_path)?;
+            let mnemonic = Mnemonic::parse(&mnemonic_string)?;
+            let key_material = Ed25519KeyMaterial::try_from(&mnemonic)?;
+            return Ok(Some(key_material));
         }
-        let mnemonic_string = fs::read_to_string(private_key_path)?;
-        let mnemonic = Mnemonic::parse(&mnemonic_string)?;
-        let key_material = Ed25519KeyMaterial::try_from(&mnemonic)?;
-        Ok(Some(key_material))
+        // Load from public key if it exists (this key material can't sign)
+        let public_key_path = self.public_key_path(nickname);
+        if public_key_path.exists() {
+            let did_string = fs::read_to_string(public_key_path)?;
+            let did = DidKey::try_from(did_string.as_str())?;
+            let key_material = Ed25519KeyMaterial::try_from(&did)?;
+            return Ok(Some(key_material));
+        }
+        // Otherwise, no key exists by this name
+        Ok(None)
     }
 
-    pub fn create_key(&self, nickname: &str) -> Result<Ed25519KeyMaterial, Error> {
-        if let Some(key_material) = self.key(nickname)? {
-            return Ok(key_material);
+    /// Register a key under a nickname
+    pub fn create_key(
+        &self,
+        nickname: &str,
+        key_material: &Ed25519KeyMaterial,
+    ) -> Result<(), Error> {
+        // Don't overwrite existing keys
+        if self.key_exists(nickname) {
+            return Err(Error::KeyExists(nickname.to_string()));
         }
-        let key_material = Ed25519KeyMaterial::generate();
-        let mnemonic = Mnemonic::try_from(&key_material)?;
-        let did = DidKey::from(&key_material);
-        write_file_deep(self.private_key_path(nickname), mnemonic.to_string())?;
+
+        // Write the public key
+        let did = DidKey::from(key_material);
         write_file_deep(self.public_key_path(nickname), did.to_string())?;
-        Ok(key_material)
+
+        // Write the private key (if it exists)
+        match Mnemonic::try_from(key_material) {
+            Ok(mnemonic) => {
+                write_file_deep(self.private_key_path(nickname), mnemonic.to_string())?;
+                Ok(())
+            }
+            Err(Error::PrivateKeyMissing(_)) => Ok(()),
+            Err(err) => Err(err),
+        }
     }
 
     pub fn delete_key(&self, nickname: &str) -> Result<(), Error> {
-        let private_key_path = self.private_key_path(nickname);
-        let public_key_path = self.public_key_path(nickname);
-        if !private_key_path.exists() || !public_key_path.exists() {
-            return Err(Error::Fs(format!("Key not found: {}", nickname)));
+        if !self.key_exists(nickname) {
+            return Err(Error::KeyNotFound(nickname.to_string()));
         }
-        fs::remove_file(private_key_path)?;
-        fs::remove_file(public_key_path)?;
+        let public_key_path = self.public_key_path(nickname);
+        if public_key_path.exists() {
+            fs::remove_file(public_key_path)?;
+        }
+        let private_key_path = self.private_key_path(nickname);
+        if private_key_path.exists() {
+            fs::remove_file(private_key_path)?;
+        }
         Ok(())
     }
 

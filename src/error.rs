@@ -48,6 +48,10 @@ pub enum Error {
     StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Private key missing: {0}")]
     PrivateKeyMissing(String),
+    #[error("A key with this nickname already exists: {0}")]
+    KeyExists(String),
+    #[error("No key with this nickname: {0}")]
+    KeyNotFound(String),
     #[error("Archive integrity error: {0}")]
     IntegrityError(String),
     #[error("Memo issuer DID is missing")]

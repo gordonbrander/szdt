@@ -4,6 +4,12 @@ Reverse-chronological.
 
 ---
 
+https://www.iroh.computer/proto/iroh-docs
+
+> Go full nostr: sign every event instead of groups of event sequences. My personal theory is this makes it much easier to do post-hoc access control, where the set of events (or CBOR sequence elements) that you're allowed to see are based on the capability tokens a requestor presents. If you want to do arbitrary access control, I think you should have a hard look iroh-docs. we're doing two signatures per record in iroh-docs, and have examples in the wild with 20M records in a single document. It's far from perfect, but it does work.
+
+---
+
 Noosphere stored the private key in:
 
 ```

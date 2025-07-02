@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use szdt::config;
+use szdt::ed25519_key_material::Ed25519KeyMaterial;
 use szdt::key_storage::InsecureKeyStorage;
 use szdt::mnemonic::Mnemonic;
 use szdt::szdt::{archive, unarchive};
@@ -146,9 +147,10 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
 }
 
 fn create_key_cmd(config: &Config, nickname: &str) {
-    let key_material = config
+    let key_material = Ed25519KeyMaterial::generate();
+    config
         .key_storage
-        .create_key(&nickname)
+        .create_key(&nickname, &key_material)
         .expect("Unable to create key");
     let mnemonic = Mnemonic::try_from(&key_material).expect("Unable to generate mnemonic");
     println!("Nickname: {}", nickname);
@@ -171,6 +173,7 @@ fn delete_key_cmd(config: &Config, nickname: &str) {
         .key_storage
         .delete_key(nickname)
         .expect("Unable to delete key");
+    println!("Key deleted: {}", nickname);
 }
 
 fn main() {
