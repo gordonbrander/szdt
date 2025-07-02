@@ -9,6 +9,7 @@ pub mod error;
 pub mod file;
 pub mod hash;
 pub mod hashseq;
+pub mod index;
 pub mod key_storage;
 pub mod link;
 pub mod manifest;

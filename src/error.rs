@@ -60,6 +60,8 @@ pub enum Error {
     MemoExpError(TimestampComparison),
     #[error("EOF")]
     Eof,
+    #[error("Not found: {0}")]
+    NotFound(String),
     #[error("Value error: {0}")]
     Value(String),
     #[error("File system error: {0}")]
