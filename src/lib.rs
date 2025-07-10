@@ -17,3 +17,4 @@ pub mod mnemonic;
 pub mod szdt;
 pub mod text;
 pub mod util;
+pub mod value;

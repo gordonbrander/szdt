@@ -78,6 +78,7 @@ impl ProtectedHeaders {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename = "szdt/memo")]
 pub struct Memo {
     /// Unsigned headers
     pub unprotected: UnprotectedHeaders,
@@ -320,5 +321,28 @@ mod tests {
         // Checksum should fail for different content
         let different_content = b"Different content".to_vec();
         assert!(memo.checksum(&different_content).is_err());
+    }
+
+    #[test]
+    fn test_memo_cbor_type_field() {
+        let body_content = b"Hello World".to_vec();
+        let memo = Memo::for_body(&body_content).unwrap();
+
+        // Serialize memo to CBOR
+        let cbor_bytes = serde_ipld_dagcbor::to_vec(&memo).unwrap();
+
+        // Deserialize back to a generic Value to check the type field
+        let value: cbor4ii::core::Value = serde_ipld_dagcbor::from_slice(&cbor_bytes).unwrap();
+
+        if let cbor4ii::core::Value::Map(entries) = value {
+            let type_key = cbor4ii::core::Value::Text("type".to_string());
+            for (key, value) in entries {
+                if key == type_key {
+                    assert_eq!(value, cbor4ii::core::Value::Text("szdt/memo".to_string()));
+                    return;
+                }
+            }
+        }
+        panic!("Serialized memo is not a map");
     }
 }

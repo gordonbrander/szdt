@@ -24,6 +24,7 @@ An example of a basic memo:
 
 ```cbor
 {
+  "type": "szdt/memo", // always "szdt/memo"
   "protected": {
     "iss": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
     "iat": 1640995200,
@@ -57,8 +58,9 @@ Like HTTP or email, memos are made up of a header part and a body part. Unlike H
 
 ```cbor
 {
-  unprotected: ...,
-  protected: {
+  "type": "szdt/memo",
+  "unprotected": ...,
+  "protected": {
     src: h'abcd1234...',
     ...
   }
@@ -177,6 +179,7 @@ Memos can reference previous versions using the `prev` field in protected header
 
 ```cbor
 {
+  "type": "szdt/memo",
   "unprotected": {
     "sig": h'9876fedc...'
   },
@@ -208,6 +211,7 @@ Applications are also free to implement other versioning strategies, such as com
 
 ```cbor
 {
+  "type": "szdt/memo",
   "unprotected": {
     "sig": h'5d2f8a0f3b4c7e8f9a1b2c3d4e5f6789abcdef01234567890abcdef0123456789abcdef01234567890abcdef0123456789abcdef01234567890abcdef'
   },
@@ -225,6 +229,7 @@ Applications are also free to implement other versioning strategies, such as com
 ```cbor
 // Version 1
 {
+  "type": "szdt/memo",
   "unprotected": {
     "sig": h'signature1...'
   },
@@ -238,6 +243,7 @@ Applications are also free to implement other versioning strategies, such as com
 
 // Version 2 (references version 1)
 {
+  "type": "szdt/memo",
   "unprotected": {
     "sig": h'signature2...'
   },
