@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Bytes(pub Vec<u8>);
 
+impl Bytes {
+    pub fn into_inner(self) -> Vec<u8> {
+        self.0
+    }
+}
+
 impl Serialize for Bytes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

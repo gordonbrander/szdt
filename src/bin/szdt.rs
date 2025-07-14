@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -101,18 +102,16 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
     println!("{:<12} {} ({})", "Issuer:", key_material.did(), nickname);
     println!("");
     println!("{:<32} | {:<52}", "File", "Hash");
-    for resource in &archive_receipt.manifest.resources {
+    for memo in &archive_receipt.manifest {
+        let path = memo.protected.path.as_deref().unwrap_or("None");
         println!(
             "{:<32} | {:<52}",
-            truncate_string_left(&resource.path.to_string_lossy(), 32),
-            resource.src
+            truncate_string_left(path, 32),
+            memo.protected.src
         );
     }
     println!("");
-    println!(
-        "Archived {} files",
-        &archive_receipt.manifest.resources.len()
-    );
+    println!("Archived {} files", &archive_receipt.manifest.len());
 }
 
 fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
@@ -126,21 +125,28 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     };
 
     let receipt = unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
-    let issuer_did_string = receipt
-        .memo
-        .protected
-        .iss
-        .map(|iss| iss.to_string())
-        .unwrap_or("None".to_string());
 
-    println!("Unpacked archive");
-    println!("Issuer: {}", issuer_did_string);
-    println!("Signature verified... OK");
-    println!("Archive integrity verified... OK");
-    println!("");
+    for memo in &receipt.manifest {
+        println!(
+            "Path: {}",
+            memo.protected.path.as_deref().unwrap_or("None").bold()
+        );
+        println!("Hash: {}", memo.protected.src.to_string().green());
+        println!(
+            "From: {}",
+            memo.protected
+                .iss
+                .as_ref()
+                .map(|iss| iss.to_string())
+                .unwrap_or("None".to_string())
+                .cyan()
+        );
+        println!("");
+    }
+
     println!(
         "Unarchived {} files to {}",
-        receipt.manifest.resources.len(),
+        receipt.manifest.len(),
         archive_dir.display()
     );
 }

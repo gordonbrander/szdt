@@ -178,12 +178,11 @@ impl Memo {
     /// Check the hash of a serializable value against the `src` field of this memo.
     /// Value will be serialized to CBOR and hashed, and the hash compared to
     /// the `src` hash of the memo.
-    pub fn checksum<T: Serialize>(&self, body: &T) -> Result<(), Error> {
-        let hash = body.to_link()?;
-        if self.protected.src != hash {
+    pub fn checksum(&self, body_hash: &Hash) -> Result<(), Error> {
+        if &self.protected.src != body_hash {
             return Err(Error::IntegrityError(format!(
                 "Value hash does not match src. Expected {}. Got: {}",
-                &self.protected.src, &hash
+                &self.protected.src, &body_hash
             )));
         }
         Ok(())
@@ -316,11 +315,14 @@ mod tests {
         let memo = Memo::for_body(&body_content).unwrap();
 
         // Checksum should pass for the same content
-        memo.checksum(&body_content).unwrap();
+        memo.checksum(&body_content.to_link().unwrap()).unwrap();
 
         // Checksum should fail for different content
         let different_content = b"Different content".to_vec();
-        assert!(memo.checksum(&different_content).is_err());
+        assert!(
+            memo.checksum(&different_content.to_link().unwrap())
+                .is_err()
+        );
     }
 
     #[test]
