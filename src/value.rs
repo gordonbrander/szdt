@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Either Memo or a CBOR Value.
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-enum Value {
+pub enum Value {
     Memo(Memo),
     Value(cbor4ii::core::Value),
 }
