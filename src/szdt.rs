@@ -19,6 +19,7 @@ pub fn archive(
     dir: &Path,
     archive_file: &Path,
     key_material: &Ed25519KeyMaterial,
+    nickname: Option<String>,
 ) -> Result<ArchiveReceipt, Error> {
     let paths = walk_files(dir)?;
 
@@ -37,6 +38,7 @@ pub fn archive(
         memo.protected.path = Some(relative_path.to_string_lossy().to_string());
         // Set content type (if we can guess it)
         memo.protected.content_type = content_type::guess_from_path(path);
+        memo.protected.iss_nickname = nickname.clone();
         // Sign memo
         memo.sign(key_material)?;
         // Write memo

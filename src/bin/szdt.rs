@@ -100,11 +100,12 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
         .expect("Unable to access key")
         .expect("No key with that nickname. Tip: create a key using `szdt key create`.");
 
-    let archive_receipt =
-        archive(&dir, &file_name, &key_material).expect("Unable to create archive");
+    let archive_receipt = archive(&dir, &file_name, &key_material, Some(nickname.to_string()))
+        .expect("Unable to create archive");
 
     println!("{:<12} {}", "Archive:", file_name.display());
-    println!("{:<12} {} ({})", "Issuer:", key_material.did(), nickname);
+    println!("{:<12} {}", "Nickname:", nickname);
+    println!("{:<12} {}", "DID:", key_material.did());
     println!("");
     println!("{:<32} | {:<52}", "File", "Hash");
     for memo in &archive_receipt.manifest {

@@ -35,6 +35,12 @@ pub struct ProtectedHeaders {
     /// Issuer (DID)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iss: Option<DidKey>,
+    /// Issuer's suggested nickname for their key.
+    /// Note: Nicknames for keys (also called [petnames](https://files.spritely.institute/papers/petnames.html))
+    /// are ultimately chosen by the user, so this value may be used, modified, or
+    /// ignored by the user.
+    #[serde(rename = "iss-nickname")]
+    pub iss_nickname: Option<String>,
     /// Issued at (UNIX timestamp, seconds)
     pub iat: u64,
     /// Not valid before (UNIX timestamp, seconds)
@@ -65,6 +71,7 @@ impl ProtectedHeaders {
     pub fn new(body: Hash) -> Self {
         Self {
             iss: None,
+            iss_nickname: None,
             iat: now(),
             nbf: Some(now()),
             exp: None,
