@@ -54,9 +54,7 @@ pub fn archive(
 
 /// Read a pair of memo and bytes from an archive.
 /// This function assumes the streaming-friendly sequence layout of:
-/// ```
-/// memo | bytes | memo | bytes | ...
-/// ```
+/// `memo | bytes | memo | bytes | ...`
 fn read_archive_memo_pair<R: BufRead>(
     reader: &mut CborSeqReader<R>,
 ) -> Result<(Memo, Bytes), Error> {
