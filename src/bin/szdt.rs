@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use console::style;
+use dialoguer::Confirm;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;
@@ -137,6 +138,24 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     let mut count = 0;
     for result in Unarchiver::new(file_bufreader) {
         let (memo, bytes) = result.expect("Unable to read archive blocks");
+
+        let confirmation = Confirm::new()
+            .with_prompt(format!(
+                "Unknown issuer {}. Do you want to trust this key?",
+                memo.protected
+                    .iss
+                    .as_ref()
+                    .map(|did| did.to_string())
+                    .unwrap_or("None".to_string())
+            ))
+            .default(true)
+            .show_default(true)
+            .interact()
+            .expect("Could not interact with terminal");
+
+        if confirmation {
+            println!("Key added to address book");
+        }
 
         // Check sig and expiries
         memo.validate(Some(now_time))
