@@ -1,13 +1,18 @@
 use clap::{Parser, Subcommand};
-use colored::Colorize;
+use console::style;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 use std::path::PathBuf;
 use szdt::config;
+use szdt::file::write_file_deep;
 use szdt::key_storage::InsecureKeyStorage;
+use szdt::link::ToLink;
 use szdt::mnemonic::Mnemonic;
-use szdt::szdt::{archive, unarchive};
+use szdt::szdt::{Unarchiver, archive};
 use szdt::text::truncate_string_left;
+use szdt::util::now;
 
 /// Shared CLI configuration
 struct Config {
@@ -124,31 +129,47 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
             .unwrap_or("archive".into()),
     };
 
-    let receipt = unarchive(&archive_dir, &file_path).expect("Unable to unpack archive");
+    let file_bufreader = BufReader::new(File::open(&file_path).expect("Unable to open file"));
 
-    for memo in &receipt.manifest {
-        println!(
-            "Path: {}",
-            memo.protected.path.as_deref().unwrap_or("None").bold()
-        );
-        println!("Hash: {}", memo.protected.src.to_string().green());
+    let now_time = now();
+
+    let mut count = 0;
+    for result in Unarchiver::new(file_bufreader) {
+        let (memo, bytes) = result.expect("Unable to read archive blocks");
+
+        // Check sig and expiries
+        memo.validate(Some(now_time))
+            .expect("Invalid memo signature");
+
+        // Check checksum
+        let hash = bytes.to_link().expect("Unable to hash body bytes");
+        memo.checksum(&hash)
+            .expect("Body bytes don't match checksum");
+
+        // Use the path in the headers, or else the hash if no path given
+        let file_path = memo.protected.path.clone().unwrap_or(hash.to_string());
+        let path = archive_dir.join(&file_path);
+        let bytes = bytes.into_inner();
+        write_file_deep(&path, &bytes).expect("Unable to write file");
+
+        println!("Path: {}", style(&file_path).bold());
+        println!("Hash: {}", style(memo.protected.src.to_string()).green());
         println!(
             "From: {}",
-            memo.protected
-                .iss
-                .as_ref()
-                .map(|iss| iss.to_string())
-                .unwrap_or("None".to_string())
-                .cyan()
+            style(
+                memo.protected
+                    .iss
+                    .as_ref()
+                    .map(|iss| iss.to_string())
+                    .unwrap_or("None".to_string())
+            )
+            .cyan()
         );
         println!("");
+        count += 1;
     }
 
-    println!(
-        "Unarchived {} files to {}",
-        receipt.manifest.len(),
-        archive_dir.display()
-    );
+    println!("Unarchived {} files to {}", count, archive_dir.display());
 }
 
 fn create_key_cmd(config: &Config, nickname: &str) {

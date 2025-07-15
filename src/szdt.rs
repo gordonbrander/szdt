@@ -3,12 +3,10 @@ use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
 use crate::content_type;
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
-use crate::file::{walk_files, write_file_deep};
-use crate::link::ToLink;
+use crate::file::walk_files;
 use crate::memo::Memo;
-use crate::util::now;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io::BufRead;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -54,11 +52,6 @@ pub fn archive(
     Ok(ArchiveReceipt { manifest })
 }
 
-#[derive(Debug, Clone)]
-pub struct UnarchiveReceipt {
-    pub manifest: Vec<Memo>,
-}
-
 /// Read a pair of memo and bytes from an archive.
 /// This function assumes the streaming-friendly sequence layout of:
 /// ```
@@ -72,40 +65,27 @@ fn read_archive_memo_pair<R: BufRead>(
     Ok((memo, bytes))
 }
 
-/// Unpack an archive into a directory
-pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceipt, Error> {
-    if dir.exists() {
-        return Err(Error::Fs(format!(
-            "Directory exists: {}",
-            dir.to_string_lossy()
-        )));
+pub struct Unarchiver<R> {
+    reader: CborSeqReader<R>,
+}
+
+impl<R: BufRead> Unarchiver<R> {
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: CborSeqReader::new(reader),
+        }
     }
+}
 
-    let archive_file = BufReader::new(File::open(archive_file_path)?);
-    let mut archive_reader = CborSeqReader::new(archive_file);
+impl<R: BufRead> Iterator for Unarchiver<R> {
+    type Item = Result<(Memo, Bytes), Error>;
 
-    let now_time = now();
-    let mut manifest = Vec::new();
-
-    loop {
-        match read_archive_memo_pair(&mut archive_reader) {
-            Ok((memo, bytes)) => {
-                let hash = bytes.to_link()?;
-                memo.validate(Some(now_time))?;
-                memo.checksum(&hash)?;
-                // Use the path in the headers, or else the hash if no path given
-                let file_path = memo.protected.path.clone().unwrap_or(hash.to_string());
-                let path = dir.join(&file_path);
-                let bytes = bytes.into_inner();
-                write_file_deep(&path, &bytes)?;
-                manifest.push(memo);
-            }
-            Err(Error::Eof) => {
-                break;
-            }
-            Err(err) => return Err(err),
-        };
+    /// Returns an unvalidated pair of `(Memo, Bytes)`
+    fn next(&mut self) -> Option<Self::Item> {
+        match read_archive_memo_pair(&mut self.reader) {
+            Ok((memo, bytes)) => Some(Ok((memo, bytes))),
+            Err(Error::Eof) => None,
+            Err(err) => Some(Err(err)),
+        }
     }
-
-    Ok(UnarchiveReceipt { manifest })
 }
