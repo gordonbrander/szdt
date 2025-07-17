@@ -132,9 +132,10 @@ mod tests {
         let mut conn = create_test_db();
 
         let migrations: &[fn(&Transaction) -> SqlResult<()>] = &[migration1, failing_migration];
-        let result = migrate(&mut conn, migrations).unwrap();
+        let error =
+            migrate(&mut conn, migrations).expect_err("Migrate should have returned an error");
 
-        assert_eq!(result, 1);
+        assert_eq!(error.version, 1);
         assert_eq!(get_user_version(&conn).unwrap(), 1);
     }
 
