@@ -206,7 +206,7 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
 }
 
 fn list_keys_cmd(config: &Config) {
-    println!("{:<1} | {:<16} | {:<56}", "🔐", "Nickname", "DID");
+    println!("{:<1} | {:<16} | {:<56}", "🔒", "Nickname", "DID");
 
     for (nickname, key_material) in config.key_storage.keys().expect("Unable to read keys") {
         let has_private_key = if key_material.private_key().is_some() {
