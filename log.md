@@ -4,17 +4,6 @@ Reverse-chronological.
 
 ---
 
-TODOs for soft launch:
-
-- [ ] Write blog post
-- [ ] Write quickstart guide
-- [ ] Fork serde_ipld_dagcbor as cborc
-- [ ] Consider JWT serialization
-- [ ] Re-implement archive as sequence of memos (no manifest)
-- [ ] Indexing
-
----
-
 Noosphere stored the private key in:
 
 ```

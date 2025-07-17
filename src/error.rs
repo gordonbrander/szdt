@@ -1,3 +1,4 @@
+use crate::db::migrations::MigrationError;
 use crate::did;
 use crate::ed25519;
 use std::{collections::TryReserveError, convert::Infallible};
@@ -44,6 +45,10 @@ pub enum Error {
     Did(#[from] did::Error),
     #[error("BIP39 error: {0}")]
     Bip39(#[from] bip39::Error),
+    #[error("SQLite error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] MigrationError),
     #[error("Error stripping path prefix")]
     StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Private key missing: {0}")]

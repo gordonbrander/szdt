@@ -74,7 +74,6 @@ enum KeyCommands {
     Create {
         #[arg(help = "Nickname for key")]
         #[arg(value_name = "NICKNAME")]
-        #[arg(default_value = "default")]
         nickname: String,
     },
 
@@ -153,8 +152,9 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
             .interact()
             .expect("Could not interact with terminal");
 
-        if confirmation {
-            println!("Key added to address book");
+        if !confirmation {
+            println!("Stopping");
+            break;
         }
 
         // Check sig and expiries
@@ -192,7 +192,7 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     println!("Unarchived {} files to {}", count, archive_dir.display());
 }
 
-fn create_key_cmd(config: &Config, nickname: &str) {
+fn create_key_cmd(config: &mut Config, nickname: &str) {
     let key_material = config
         .key_storage
         .create_key(&nickname)
@@ -206,14 +206,24 @@ fn create_key_cmd(config: &Config, nickname: &str) {
 }
 
 fn list_keys_cmd(config: &Config) {
-    println!("{:<16} | {:<56}", "Nickname", "DID");
+    println!("{:<1} | {:<16} | {:<56}", "🔐", "Nickname", "DID");
 
-    for (nickname, did) in config.key_storage.keys().expect("Unable to read keys") {
-        println!("{:<16} | {:<56}", nickname, did);
+    for (nickname, key_material) in config.key_storage.keys().expect("Unable to read keys") {
+        let has_private_key = if key_material.private_key().is_some() {
+            "🔑"
+        } else {
+            " "
+        };
+        println!(
+            "{:<1} | {:<16} | {:<56}",
+            has_private_key,
+            nickname,
+            key_material.did()
+        );
     }
 }
 
-fn delete_key_cmd(config: &Config, nickname: &str) {
+fn delete_key_cmd(config: &mut Config, nickname: &str) {
     config
         .key_storage
         .delete_key(nickname)
@@ -221,18 +231,19 @@ fn delete_key_cmd(config: &Config, nickname: &str) {
 }
 
 fn main() {
-    let keys_dir = config::keys_dir().expect("Unable to locate key storage directory");
-    let key_storage = InsecureKeyStorage::new(keys_dir).expect("Unable to initialize key storage");
-    let config = Config { key_storage };
+    let contacts_file = config::contacts_file().expect("Unable to locate key storage directory");
+    let key_storage =
+        InsecureKeyStorage::new(&contacts_file).expect("Unable to initialize key storage");
+    let mut config = Config { key_storage };
 
     let cli = Cli::parse();
     match cli.command {
         Commands::Archive { dir, sign } => archive_cmd(&config, &dir, &sign),
         Commands::Unarchive { file, dir } => unarchive_cmd(dir, file),
         Commands::Key { command } => match command {
-            KeyCommands::Create { nickname } => create_key_cmd(&config, &nickname),
+            KeyCommands::Create { nickname } => create_key_cmd(&mut config, &nickname),
             KeyCommands::List {} => list_keys_cmd(&config),
-            KeyCommands::Delete { nickname } => delete_key_cmd(&config, &nickname),
+            KeyCommands::Delete { nickname } => delete_key_cmd(&mut config, &nickname),
         },
     }
 }

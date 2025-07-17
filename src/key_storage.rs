@@ -1,84 +1,115 @@
+use crate::db::migrations::migrate;
 use crate::did::DidKey;
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
-use crate::file::{list_files, write_file_deep};
-use crate::mnemonic::Mnemonic;
-use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fs;
-use std::path::PathBuf;
+use rusqlite::params;
+use std::path::Path;
+
+fn migration1(tx: &rusqlite::Transaction) -> Result<(), rusqlite::Error> {
+    tx.execute(
+        "CREATE TABLE IF NOT EXISTS contact (
+            nickname TEXT PRIMARY KEY,
+            did TEXT NOT NULL,
+            private_key BLOB
+        )",
+        [],
+    )?;
+    Ok(())
+}
 
 pub struct InsecureKeyStorage {
-    key_storage_dir: PathBuf,
+    db: rusqlite::Connection,
 }
 
 impl InsecureKeyStorage {
-    pub fn new(key_storage_dir: PathBuf) -> Result<Self, Error> {
-        Ok(InsecureKeyStorage { key_storage_dir })
-    }
-
-    fn private_key_path(&self, nickname: &str) -> PathBuf {
-        self.key_storage_dir
-            .join(nickname)
-            .with_extension("private")
-    }
-
-    fn public_key_path(&self, nickname: &str) -> PathBuf {
-        self.key_storage_dir.join(nickname).with_extension("public")
+    pub fn new(file_path: &Path) -> Result<Self, Error> {
+        let mut db = rusqlite::Connection::open(file_path)?;
+        migrate(&mut db, &[migration1])?;
+        Ok(InsecureKeyStorage { db })
     }
 
     /// Read key with name, returning Ed25519KeyMaterial with private key
     pub fn key(&self, nickname: &str) -> Result<Option<Ed25519KeyMaterial>, Error> {
-        let private_key_path = self.private_key_path(nickname);
-        if !private_key_path.exists() {
-            return Ok(None);
+        match self.db.query_row_and_then(
+            "SELECT nickname, did, private_key FROM contact WHERE nickname = ?",
+            params![nickname],
+            map_contact_row,
+        ) {
+            Ok((_nickname, key_material)) => Ok(Some(key_material)),
+            Err(Error::Sqlite(rusqlite::Error::QueryReturnedNoRows)) => Ok(None),
+            Err(e) => Err(e),
         }
-        let mnemonic_string = fs::read_to_string(private_key_path)?;
-        let mnemonic = Mnemonic::parse(&mnemonic_string)?;
-        let key_material = Ed25519KeyMaterial::try_from(&mnemonic)?;
-        Ok(Some(key_material))
     }
 
+    pub fn key_for_did(&self, did: &DidKey) -> Result<Option<Ed25519KeyMaterial>, Error> {
+        let did_string = did.to_string();
+        match self.db.query_row_and_then(
+            "SELECT nickname, did, private_key FROM contact WHERE did = ?",
+            [did_string],
+            map_contact_row,
+        ) {
+            Ok((_nickname, key_material)) => Ok(Some(key_material)),
+            Err(Error::Sqlite(rusqlite::Error::QueryReturnedNoRows)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Create a new public/private keypair, stored at nickname.
+    /// Nickname must be unique. If a record with this nickname already exists,
+    /// a Sqlite error will be returned.
     pub fn create_key(&self, nickname: &str) -> Result<Ed25519KeyMaterial, Error> {
+        let key_material = Ed25519KeyMaterial::generate();
+        self.db.execute(
+            "INSERT INTO contact (nickname, did, private_key) VALUES (?, ?, ?)",
+            params![
+                nickname,
+                &key_material.did().to_string(),
+                &key_material.private_key(),
+            ],
+        )?;
+        Ok(key_material)
+    }
+
+    pub fn get_or_create_key(&self, nickname: &str) -> Result<Ed25519KeyMaterial, Error> {
         if let Some(key_material) = self.key(nickname)? {
             return Ok(key_material);
         }
-        let key_material = Ed25519KeyMaterial::generate();
-        let mnemonic = Mnemonic::try_from(&key_material)?;
-        let did = DidKey::from(&key_material);
-        write_file_deep(self.private_key_path(nickname), mnemonic.to_string())?;
-        write_file_deep(self.public_key_path(nickname), did.to_string())?;
+        let key_material = self.create_key(nickname)?;
         Ok(key_material)
     }
 
     pub fn delete_key(&self, nickname: &str) -> Result<(), Error> {
-        let private_key_path = self.private_key_path(nickname);
-        let public_key_path = self.public_key_path(nickname);
-        if !private_key_path.exists() || !public_key_path.exists() {
-            return Err(Error::Fs(format!("Key not found: {}", nickname)));
-        }
-        fs::remove_file(private_key_path)?;
-        fs::remove_file(public_key_path)?;
+        self.db
+            .execute("DELETE FROM contact WHERE nickname = ?", params![nickname])?;
         Ok(())
     }
 
-    /// Get a BTreeMap of key nicknames to DID
-    pub fn keys(&self) -> Result<BTreeMap<String, DidKey>, Error> {
-        let mut key_index = BTreeMap::new();
-        let public_ext = OsStr::new("public");
-        for path in list_files(&self.key_storage_dir)? {
-            if path.extension() != Some(public_ext) {
-                continue;
-            };
-            let did_string = fs::read_to_string(&path)?;
-            let did = DidKey::try_from(did_string.as_str())?;
-            let stem = path.file_stem().ok_or(Error::Fs(format!(
-                "Could not read stem from path {}",
-                path.display()
-            )))?;
-            let name = stem.to_string_lossy().to_string();
-            key_index.insert(name, did);
+    /// Get a HashMap of key nicknames to DID
+    pub fn keys(&self) -> Result<Vec<(String, Ed25519KeyMaterial)>, Error> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT nickname, did, private_key FROM contact ORDER BY nickname")?;
+        let mut contacts: Vec<(String, Ed25519KeyMaterial)> = Vec::new();
+        for key_material in stmt.query_and_then([], map_contact_row)? {
+            contacts.push(key_material?);
         }
-        Ok(key_index)
+        Ok(contacts)
+    }
+}
+
+fn map_contact_row(row: &rusqlite::Row) -> Result<(String, Ed25519KeyMaterial), Error> {
+    let nickname: String = row.get(0)?;
+    let did_url: String = row.get(1)?;
+    let private_key: Option<Vec<u8>> = row.get(2)?;
+    match (did_url, private_key) {
+        (_did_url, Some(private_key)) => {
+            let key_material = Ed25519KeyMaterial::try_from_private_key(&private_key)?;
+            Ok((nickname, key_material))
+        }
+        (did_url, None) => {
+            let did = DidKey::try_from(did_url.as_str())?;
+            let key_material = Ed25519KeyMaterial::try_from(&did)?;
+            Ok((nickname, key_material))
+        }
     }
 }

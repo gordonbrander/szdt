@@ -9,6 +9,6 @@ pub fn config_dir() -> Result<PathBuf, Error> {
 }
 
 /// Returns the path to the keys directory.
-pub fn keys_dir() -> Result<PathBuf, Error> {
-    Ok(config_dir()?.join("keys"))
+pub fn contacts_file() -> Result<PathBuf, Error> {
+    Ok(config_dir()?.join("contacts.sqlite"))
 }
