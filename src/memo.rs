@@ -3,7 +3,7 @@ use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
 use crate::hash::Hash;
 use crate::link::ToLink;
-use crate::util::now;
+use crate::time::now;
 use crate::{did::DidKey, error::TimestampComparison};
 use cbor4ii::core::Value;
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,12 @@ pub struct ProtectedHeaders {
     /// Issuer (DID)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iss: Option<DidKey>,
+    /// Issuer's suggested nickname for their key.
+    /// Note: Nicknames for keys (also called [petnames](https://files.spritely.institute/papers/petnames.html))
+    /// are ultimately chosen by the user, so this value may be used, modified, or
+    /// ignored by the user.
+    #[serde(rename = "iss-nickname")]
+    pub iss_nickname: Option<String>,
     /// Issued at (UNIX timestamp, seconds)
     pub iat: u64,
     /// Not valid before (UNIX timestamp, seconds)
@@ -65,6 +71,7 @@ impl ProtectedHeaders {
     pub fn new(body: Hash) -> Self {
         Self {
             iss: None,
+            iss_nickname: None,
             iat: now(),
             nbf: Some(now()),
             exp: None,
@@ -178,12 +185,11 @@ impl Memo {
     /// Check the hash of a serializable value against the `src` field of this memo.
     /// Value will be serialized to CBOR and hashed, and the hash compared to
     /// the `src` hash of the memo.
-    pub fn checksum<T: Serialize>(&self, body: &T) -> Result<(), Error> {
-        let hash = body.to_link()?;
-        if self.protected.src != hash {
+    pub fn checksum(&self, body_hash: &Hash) -> Result<(), Error> {
+        if &self.protected.src != body_hash {
             return Err(Error::IntegrityError(format!(
                 "Value hash does not match src. Expected {}. Got: {}",
-                &self.protected.src, &hash
+                &self.protected.src, &body_hash
             )));
         }
         Ok(())
@@ -316,11 +322,14 @@ mod tests {
         let memo = Memo::for_body(&body_content).unwrap();
 
         // Checksum should pass for the same content
-        memo.checksum(&body_content).unwrap();
+        memo.checksum(&body_content.to_link().unwrap()).unwrap();
 
         // Checksum should fail for different content
         let different_content = b"Different content".to_vec();
-        assert!(memo.checksum(&different_content).is_err());
+        assert!(
+            memo.checksum(&different_content.to_link().unwrap())
+                .is_err()
+        );
     }
 
     #[test]

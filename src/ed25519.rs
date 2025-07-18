@@ -2,7 +2,7 @@ use ed25519_dalek::{
     self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, SecretKey, Signature, Signer, SigningKey, Verifier,
     VerifyingKey,
 };
-use rand::rngs::OsRng;
+use rand::{TryRngCore, rngs::OsRng};
 use thiserror::Error;
 
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
@@ -12,8 +12,13 @@ pub type PrivateKey = [u8; SECRET_KEY_LENGTH];
 /// Generate a new signing keypair.
 /// Returns a tuple of `(pubkey, privkey)`.
 pub fn generate_keypair() -> (PublicKey, PrivateKey) {
-    let mut csprng = OsRng;
-    let signing_key = SigningKey::generate(&mut csprng);
+    let mut secret_key = [0u8; SECRET_KEY_LENGTH];
+    // Fill the array with random bytes
+    OsRng
+        .try_fill_bytes(&mut secret_key)
+        .expect("Should be able to generate random bytes");
+
+    let signing_key = SigningKey::from_bytes(&secret_key);
     (
         signing_key.verifying_key().to_bytes(),
         signing_key.to_bytes(),

@@ -5,11 +5,12 @@ use crate::ed25519::{
 };
 use crate::error::Error;
 use crate::mnemonic::Mnemonic;
+use serde::{Deserialize, Serialize};
 
 /// Wraps ed25519 key material, allowing you to
 /// - sign and verify
 /// - get a DID corresponding to the public key
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ed25519KeyMaterial {
     public_key: PublicKey,
     private_key: Option<PrivateKey>,
@@ -44,13 +45,17 @@ impl Ed25519KeyMaterial {
     }
 
     /// Get the private key portion
-    pub fn private_key(&self) -> Option<PrivateKey> {
-        self.private_key
+    pub fn private_key(&self) -> Option<Vec<u8>> {
+        if let Some(private_key) = self.private_key {
+            Some(private_key.as_slice().to_vec())
+        } else {
+            None
+        }
     }
 
     /// Get the public key portion
-    pub fn public_key(&self) -> PublicKey {
-        self.public_key
+    pub fn public_key(&self) -> Vec<u8> {
+        self.public_key.as_slice().to_vec()
     }
 
     pub fn did(&self) -> DidKey {

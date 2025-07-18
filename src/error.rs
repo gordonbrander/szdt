@@ -1,5 +1,7 @@
+use crate::db::migrations::MigrationError;
 use crate::did;
 use crate::ed25519;
+use crate::nickname;
 use std::{collections::TryReserveError, convert::Infallible};
 use thiserror::Error;
 
@@ -44,6 +46,10 @@ pub enum Error {
     Did(#[from] did::Error),
     #[error("BIP39 error: {0}")]
     Bip39(#[from] bip39::Error),
+    #[error("SQLite error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("Migration error: {0}")]
+    MigrationError(#[from] MigrationError),
     #[error("Error stripping path prefix")]
     StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Private key missing: {0}")]
@@ -58,6 +64,10 @@ pub enum Error {
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]
     MemoExpError(TimestampComparison),
+    #[error("Nickname error: {0}")]
+    NicknameError(#[from] nickname::NicknameError),
+    #[error("Nickname already taken: {0}")]
+    NicknameAlreadyTaken(String),
     #[error("EOF")]
     Eof,
     #[error("Value error: {0}")]

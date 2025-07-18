@@ -1,114 +1,92 @@
 use crate::bytes::Bytes;
 use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
+use crate::contact::Contact;
+use crate::content_type;
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
-use crate::file::{walk_files, write_file_deep};
-use crate::link::ToLink;
-use crate::manifest::{self, Manifest};
+use crate::file::walk_files;
 use crate::memo::Memo;
-use crate::util::now;
 use std::fs::{self, File};
-use std::io::BufReader;
+use std::io::BufRead;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct ArchiveReceipt {
-    pub memo: Memo,
-    pub manifest: Manifest,
+    pub manifest: Vec<Memo>,
 }
 
 /// Write an archive file by reading files from a directory
 pub fn archive(
     dir: &Path,
     archive_file: &Path,
-    key_material: &Ed25519KeyMaterial,
+    contact: &Contact,
 ) -> Result<ArchiveReceipt, Error> {
+    let key_material = Ed25519KeyMaterial::try_from(contact)?;
     let paths = walk_files(dir)?;
-    // Construct manifest
-    let manifest = Manifest::from_paths(paths.clone().into_iter(), dir)?;
-
-    // Wrap manifest in a memo
-    let mut manifest_memo = Memo::for_body(&manifest)?;
-    // Set content type
-    manifest_memo.protected.content_type = Some(manifest::CONTENT_TYPE.to_string());
-    // Sign the memo
-    manifest_memo.sign(&key_material)?;
 
     let archive_file = File::create(archive_file)?;
     let mut archive_writer = CborSeqWriter::new(archive_file);
-    // Write the manifest memo
-    archive_writer.write_block(&manifest_memo)?;
-    // Write the manifest itself
-    archive_writer.write_block(&manifest)?;
+    let mut manifest: Vec<Memo> = Vec::new();
 
-    // Write file bytes in the order they appear within the resources
-    for resource in &manifest.resources {
-        // Rebuild the path. We could re-use the paths above, but reading from
-        // resource logically ensures that blobs are written in exactly the
-        // order they are listed.
-        let file_path = &dir.join(&resource.path);
-        let bytes = fs::read(file_path)?;
+    for path in &paths {
+        // Read file bytes
+        let bytes = fs::read(path)?;
         let cbor_bytes = Bytes(bytes);
+        let relative_path = path.strip_prefix(dir)?;
+        // Create a memo for this file
+        let mut memo = Memo::for_body(&cbor_bytes)?;
+        // Set file path
+        memo.protected.path = Some(relative_path.to_string_lossy().to_string());
+        // Set content type (if we can guess it)
+        memo.protected.content_type = content_type::guess_from_path(path);
+        memo.protected.iss_nickname = Some(contact.nickname.to_string());
+        // Sign memo
+        memo.sign(&key_material)?;
+        // Write memo
+        archive_writer.write_block(&memo)?;
+        // Write bytes
         archive_writer.write_block(&cbor_bytes)?;
+        // Push memo into manifest
+        manifest.push(memo);
     }
 
     archive_writer.flush()?;
 
-    Ok(ArchiveReceipt {
-        memo: manifest_memo,
-        manifest,
-    })
+    Ok(ArchiveReceipt { manifest })
 }
 
-#[derive(Debug, Clone)]
-pub struct UnarchiveReceipt {
-    pub memo: Memo,
-    pub manifest: Manifest,
+/// Read a pair of memo and bytes from an archive.
+/// This function assumes the streaming-friendly sequence layout of:
+/// `memo | bytes | memo | bytes | ...`
+fn read_archive_memo_pair<R: BufRead>(
+    reader: &mut CborSeqReader<R>,
+) -> Result<(Memo, Bytes), Error> {
+    let memo: Memo = reader.read_block()?;
+    let bytes: Bytes = reader.read_block()?;
+    Ok((memo, bytes))
 }
 
-/// Unpack an archive into a directory
-pub fn unarchive(dir: &Path, archive_file_path: &Path) -> Result<UnarchiveReceipt, Error> {
-    if dir.exists() {
-        return Err(Error::Fs(format!(
-            "Directory exists: {}",
-            dir.to_string_lossy()
-        )));
-    }
+pub struct Unarchiver<R> {
+    reader: CborSeqReader<R>,
+}
 
-    let archive_file = BufReader::new(File::open(archive_file_path)?);
-    let mut archive_reader = CborSeqReader::new(archive_file);
-
-    let now_time = now();
-    // First block should be a memo for the manifest
-    let manifest_memo: Memo = archive_reader.read_block()?;
-    // Check if the root memo is valid (signature matches, etc)
-    manifest_memo.validate(Some(now_time))?;
-
-    // The next block should be a manifest
-    let manifest: Manifest = archive_reader.read_block()?;
-    // Checksum it against memo src
-    manifest_memo.checksum(&manifest)?;
-
-    // Now load everything else
-    for resource in &manifest.resources {
-        let bytes: Bytes = archive_reader.read_block()?;
-        let hash = bytes.to_link()?;
-        // Check integrity
-        if &hash != &resource.src {
-            return Err(Error::IntegrityError(format!(
-                "Hash does not match for path {}. Expected: {}. Got: {}.",
-                &resource.path.to_string_lossy(),
-                &resource.src,
-                hash
-            )));
+impl<R: BufRead> Unarchiver<R> {
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: CborSeqReader::new(reader),
         }
-
-        let path = dir.join(&resource.path);
-        write_file_deep(&path, &bytes.0)?;
     }
+}
 
-    Ok(UnarchiveReceipt {
-        memo: manifest_memo,
-        manifest,
-    })
+impl<R: BufRead> Iterator for Unarchiver<R> {
+    type Item = Result<(Memo, Bytes), Error>;
+
+    /// Returns an unvalidated pair of `(Memo, Bytes)`
+    fn next(&mut self) -> Option<Self::Item> {
+        match read_archive_memo_pair(&mut self.reader) {
+            Ok((memo, bytes)) => Some(Ok((memo, bytes))),
+            Err(Error::Eof) => None,
+            Err(err) => Some(Err(err)),
+        }
+    }
 }
