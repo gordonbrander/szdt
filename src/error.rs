@@ -1,6 +1,7 @@
 use crate::db::migrations::MigrationError;
 use crate::did;
 use crate::ed25519;
+use crate::util;
 use std::{collections::TryReserveError, convert::Infallible};
 use thiserror::Error;
 
@@ -63,6 +64,8 @@ pub enum Error {
     MemoNbfError(TimestampComparison),
     #[error("Memo has expired (exp time didn't validate): {0}")]
     MemoExpError(TimestampComparison),
+    #[error("Nickname error: {0}")]
+    NicknameError(#[from] util::nickname::NicknameError),
     #[error("EOF")]
     Eof,
     #[error("Value error: {0}")]

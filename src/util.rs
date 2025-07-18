@@ -1,3 +1,4 @@
+pub mod nickname;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Get the current epoch time in seconds
