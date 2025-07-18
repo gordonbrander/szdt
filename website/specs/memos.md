@@ -96,6 +96,7 @@ Optional headers:
 | `exp` | Integer | Expiration timestamp (Unix seconds) |
 | `prev` | Bytes(32) | Blake3 hash of previous version of this memo |
 | `content-type` | String | MIME content type of referenced content |
+| `iss-nickname` | String | The issuer's suggested nickname |
 
 ## Unprotected Headers
 
