@@ -7,6 +7,7 @@ use std::io::BufReader;
 use std::path::Path;
 use std::path::PathBuf;
 use szdt::config;
+use szdt::ed25519_key_material::Ed25519KeyMaterial;
 use szdt::file::write_file_deep;
 use szdt::key_storage::InsecureKeyStorage;
 use szdt::link::ToLink;
@@ -152,11 +153,14 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
             .is_none()
         {
             let iss_nickname: &str = memo.protected.iss_nickname.as_deref().unwrap_or("anon");
+            let iss_key_material =
+                Ed25519KeyMaterial::try_from(iss).expect("Unable to get public key from did");
 
             let confirmation = Confirm::new()
                 .with_prompt(format!(
-                    "Unknown issuer ~{} <{}>.\nDo you want to trust this key?",
-                    iss_nickname, iss,
+                    "Unknown issuer {} {}. Do you want to add to trusted contacts?",
+                    style(format!("~{}", iss_nickname)).italic().bold().cyan(),
+                    style(format!("<{}>", iss)).cyan()
                 ))
                 .default(true)
                 .show_default(true)
@@ -170,13 +174,16 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
                     .expect("Nickname is not valid");
                 config
                     .key_storage
-                    .create_key(&unique_nickname)
+                    .create_key(&unique_nickname, &iss_key_material)
                     .expect("Couldn't save key");
 
-                println!("Saved to contacts as {}", unique_nickname);
+                println!(
+                    "Saved to contacts as {}",
+                    style(unique_nickname).bold().cyan()
+                );
                 println!("");
             } else {
-                println!("Skipping memo...");
+                println!("Skipping...");
                 continue;
             }
         };
@@ -230,14 +237,20 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
         println!("");
     }
 
-    let key_material = config
+    let key_material = Ed25519KeyMaterial::generate();
+
+    config
         .key_storage
-        .create_key(&unique_nickname)
+        .create_key(&unique_nickname, &key_material)
         .expect("Unable to create key");
+
     let mnemonic = Mnemonic::try_from(&key_material).expect("Unable to generate mnemonic");
 
-    println!("Nickname: {}", unique_nickname);
-    println!("DID: {}", key_material.did());
+    println!(
+        "{} {}",
+        style(unique_nickname).bold().cyan(),
+        format!("<{}>", style(key_material.did()).cyan())
+    );
     println!("");
     println!("Recovery phrase:");
     println!("{}", mnemonic);

@@ -79,6 +79,15 @@ impl TryFrom<&str> for DidKey {
     }
 }
 
+impl TryFrom<String> for DidKey {
+    type Error = Error;
+
+    /// Parse a did:key str encoding an ed25519 public key into a DidKey.
+    fn try_from(did_key_url: String) -> Result<Self, Error> {
+        DidKey::parse(&did_key_url)
+    }
+}
+
 impl Serialize for DidKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -119,7 +128,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_roundtrip_ed25519_did_key() {
+    fn test_roundtrip_did_key() {
         // Test vector
         let pubkey: [u8; 32] = [
             215, 90, 152, 1, 130, 177, 10, 183, 213, 75, 254, 211, 201, 100, 7, 58, 14, 225, 114,
@@ -134,7 +143,15 @@ mod tests {
     }
 
     #[test]
-    fn test_did_key_string_format() {
+    fn test_roundtrip_did_url() {
+        let did_url = "did:key:z6MkjxXr49JYNRDagDRVTNJKj17vTcmxwPb1KybzeVUM13qs";
+        let did = DidKey::parse(did_url).unwrap();
+        let did_url_2 = did.to_string();
+        assert_eq!(did_url, did_url_2);
+    }
+
+    #[test]
+    fn test_did_key_string_magic_prefix() {
         let pubkey: [u8; 32] = [
             215, 90, 152, 1, 130, 177, 10, 183, 213, 75, 254, 211, 201, 100, 7, 58, 14, 225, 114,
             243, 218, 166, 35, 37, 175, 2, 26, 104, 247, 7, 81, 26,

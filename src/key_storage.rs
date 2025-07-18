@@ -82,8 +82,11 @@ impl InsecureKeyStorage {
     /// Create a new public/private keypair, stored at nickname.
     /// Nickname must be unique. If a record with this nickname already exists,
     /// a Sqlite error will be returned.
-    pub fn create_key(&self, nickname: &Nickname) -> Result<Ed25519KeyMaterial, Error> {
-        let key_material = Ed25519KeyMaterial::generate();
+    pub fn create_key(
+        &self,
+        nickname: &Nickname,
+        key_material: &Ed25519KeyMaterial,
+    ) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO contact (nickname, did, private_key) VALUES (?, ?, ?)",
             params![
@@ -92,14 +95,15 @@ impl InsecureKeyStorage {
                 &key_material.private_key(),
             ],
         )?;
-        Ok(key_material)
+        Ok(())
     }
 
     pub fn get_or_create_key(&self, nickname: &Nickname) -> Result<Ed25519KeyMaterial, Error> {
         if let Some(key_material) = self.key(nickname)? {
             return Ok(key_material);
         }
-        let key_material = self.create_key(nickname)?;
+        let key_material = Ed25519KeyMaterial::generate();
+        self.create_key(nickname, &key_material)?;
         Ok(key_material)
     }
 
