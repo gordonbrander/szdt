@@ -1,7 +1,8 @@
 use crate::error::Error;
-use data_encoding::BASE32_NOPAD;
-use rand::Rng;
+use crate::text::truncate;
 use thiserror::Error;
+
+const NICKNAME_MAX_LENGTH: usize = 63;
 
 /// A nickname is a string that follows domain-name-compatible rules, less the TLD.
 ///
@@ -14,6 +15,7 @@ use thiserror::Error;
 /// - Multiple hyphens are discouraged.
 ///
 /// We omit the TLD, so (.) is not allowed.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Nickname(String);
 
 impl Nickname {
@@ -23,7 +25,7 @@ impl Nickname {
         let mut nickname: String = text
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '-')
-            .take(63)
+            .take(NICKNAME_MAX_LENGTH)
             .collect::<String>()
             .to_lowercase();
 
@@ -42,15 +44,17 @@ impl Nickname {
         Ok(Nickname(nickname))
     }
 
-    /// Adds a 4-character base32 lowercase suffix.
-    pub fn with_random_suffix(text: &str) -> Result<Nickname, Error> {
-        let mut rng = rand::rng();
-        let random_bytes: [u8; 3] = rng.random(); // 3 bytes = 24 bits, enough for 4 base32 chars
-        let suffix = BASE32_NOPAD.encode(&random_bytes);
-        let suffix_4char = &suffix[..4]; // Take first 4 characters
-        let full_name = format!("{}{}", text, suffix_4char);
-        let nickname = Self::parse(&full_name)?;
+    pub fn with_suffix(text: &str, suffix: &str) -> Result<Nickname, Error> {
+        let suffix_len = suffix.chars().count();
+        let truncated = truncate(text, NICKNAME_MAX_LENGTH - suffix_len, "");
+        let text_with_suffix = format!("{}{}", truncated, suffix);
+        let nickname = Self::parse(&text_with_suffix)?;
         Ok(nickname)
+    }
+
+    /// Borrow nickname as a string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 

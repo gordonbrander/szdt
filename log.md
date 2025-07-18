@@ -4,6 +4,23 @@ Reverse-chronological.
 
 ---
 
+Why not COSE_Sign1 for memos? If we use CBOR Core, then we can have tags and integer keys. The COSE_Sign1 array can be tagged, giving us a discriminator.
+
+However, COSE_Sign1 signs over the protected headers and payload, meaning we don't get that nice streaming property of signing over the hash unless we make the hash the payload.s
+
+Note: cbor4ii doesn't support custom CBOR tags:
+- https://github.com/quininer/cbor4ii/blob/99607373e66b02c488acb2a7cb7d7a75566d5e81/src/serde/de.rs#L76
+- https://github.com/quininer/cbor4ii/blob/master/src/core.rs#L170
+- https://github.com/quininer/cbor4ii/issues/2#issuecomment-1019399237
+- https://github.com/quininer/cbor4ii/issues/35#issuecomment-2461243496
+
+- cborc (CBOR/c, CBOR Core) https://datatracker-ietf-org.lucaspardue.com/doc/draft-rundgren-cbor-core/
+- CBOR spec section 4.2.1. "Core Deterministic Encoding Requirements" https://datatracker.ietf.org/doc/html/rfc8949#core-det
+
+Conclusion: keep it simple. Memos can be custom. It's ok.
+
+---
+
 Noosphere stored the private key in:
 
 ```

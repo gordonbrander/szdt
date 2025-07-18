@@ -11,9 +11,10 @@ use szdt::file::write_file_deep;
 use szdt::key_storage::InsecureKeyStorage;
 use szdt::link::ToLink;
 use szdt::mnemonic::Mnemonic;
+use szdt::nickname::Nickname;
 use szdt::szdt::{Unarchiver, archive};
-use szdt::text::truncate_string_left;
-use szdt::util::now;
+use szdt::text::{ELLIPSIS, truncate};
+use szdt::time::now;
 
 /// Shared CLI configuration
 struct Config {
@@ -57,7 +58,6 @@ enum Commands {
         )]
         #[arg(short, long)]
         #[arg(value_name = "NICKNAME")]
-        #[arg(default_value = "default")]
         sign: String,
     },
 
@@ -94,9 +94,11 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
     let file_name =
         PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("szdt");
 
+    let nickname = Nickname::parse(&nickname).expect("Invalid nickname");
+
     let key_material = config
         .key_storage
-        .key(nickname)
+        .key(&nickname)
         .expect("Unable to access key")
         .expect("No key with that nickname. Tip: create a key using `szdt key create`.");
 
@@ -112,7 +114,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
         let path = memo.protected.path.as_deref().unwrap_or("None");
         println!(
             "{:<32} | {:<52}",
-            truncate_string_left(path, 32),
+            truncate(path, 32, ELLIPSIS),
             memo.protected.src
         );
     }
@@ -120,7 +122,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
     println!("Archived {} files", &archive_receipt.manifest.len());
 }
 
-fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
+fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) {
     // Create a folder named after the file path
     let archive_dir = match dir {
         Some(dir) => dir,
@@ -138,24 +140,46 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
     for result in Unarchiver::new(file_bufreader) {
         let (memo, bytes) = result.expect("Unable to read archive blocks");
 
-        let confirmation = Confirm::new()
-            .with_prompt(format!(
-                "Unknown issuer {}. Do you want to trust this key?",
-                memo.protected
-                    .iss
-                    .as_ref()
-                    .map(|did| did.to_string())
-                    .unwrap_or("None".to_string())
-            ))
-            .default(true)
-            .show_default(true)
-            .interact()
-            .expect("Could not interact with terminal");
+        let Some(iss) = memo.protected.iss.as_ref() else {
+            println!("Unsigned memo. Skipping");
+            continue;
+        };
 
-        if !confirmation {
-            println!("Stopping");
-            break;
-        }
+        if config
+            .key_storage
+            .key_for_did(&iss)
+            .expect("Unable to get key for did")
+            .is_none()
+        {
+            let iss_nickname: &str = memo.protected.iss_nickname.as_deref().unwrap_or("anon");
+
+            let confirmation = Confirm::new()
+                .with_prompt(format!(
+                    "Unknown issuer ~{} <{}>.\nDo you want to trust this key?",
+                    iss_nickname, iss,
+                ))
+                .default(true)
+                .show_default(true)
+                .interact()
+                .expect("Could not interact with terminal");
+
+            if confirmation {
+                let unique_nickname = config
+                    .key_storage
+                    .unique_nickname(&iss_nickname)
+                    .expect("Nickname is not valid");
+                config
+                    .key_storage
+                    .create_key(&unique_nickname)
+                    .expect("Couldn't save key");
+
+                println!("Saved to contacts as {}", unique_nickname);
+                println!("");
+            } else {
+                println!("Skipping memo...");
+                continue;
+            }
+        };
 
         // Check sig and expiries
         memo.validate(Some(now_time))
@@ -193,12 +217,26 @@ fn unarchive_cmd(dir: Option<PathBuf>, file_path: PathBuf) {
 }
 
 fn create_key_cmd(config: &mut Config, nickname: &str) {
+    let unique_nickname = config
+        .key_storage
+        .unique_nickname(nickname)
+        .expect("Unable to generate unique nickname");
+
+    if unique_nickname.as_str() != nickname {
+        println!(
+            "Nickname {} already exists, using {}",
+            nickname, unique_nickname
+        );
+        println!("");
+    }
+
     let key_material = config
         .key_storage
-        .create_key(&nickname)
+        .create_key(&unique_nickname)
         .expect("Unable to create key");
     let mnemonic = Mnemonic::try_from(&key_material).expect("Unable to generate mnemonic");
-    println!("Nickname: {}", nickname);
+
+    println!("Nickname: {}", unique_nickname);
     println!("DID: {}", key_material.did());
     println!("");
     println!("Recovery phrase:");
@@ -239,7 +277,7 @@ fn main() {
     let cli = Cli::parse();
     match cli.command {
         Commands::Archive { dir, sign } => archive_cmd(&config, &dir, &sign),
-        Commands::Unarchive { file, dir } => unarchive_cmd(dir, file),
+        Commands::Unarchive { file, dir } => unarchive_cmd(&mut config, dir, file),
         Commands::Key { command } => match command {
             KeyCommands::Create { nickname } => create_key_cmd(&mut config, &nickname),
             KeyCommands::List {} => list_keys_cmd(&config),

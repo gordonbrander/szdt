@@ -3,7 +3,7 @@ use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
 use crate::hash::Hash;
 use crate::link::ToLink;
-use crate::util::now;
+use crate::time::now;
 use crate::{did::DidKey, error::TimestampComparison};
 use cbor4ii::core::Value;
 use serde::{Deserialize, Serialize};
