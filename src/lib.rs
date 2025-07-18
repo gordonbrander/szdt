@@ -3,7 +3,7 @@ pub mod bytes;
 pub mod cbor_seq;
 pub mod config;
 pub mod content_type;
-pub mod db;
+pub(crate) mod db;
 pub mod did;
 pub mod ed25519;
 pub mod ed25519_key_material;
