@@ -64,6 +64,22 @@ impl std::fmt::Display for Nickname {
     }
 }
 
+impl TryFrom<&str> for Nickname {
+    type Error = NicknameError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::parse(value)
+    }
+}
+
+impl TryFrom<String> for Nickname {
+    type Error = NicknameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::parse(&value)
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum NicknameError {
     #[error("Nickname is too short. Must be at least 1 character.")]

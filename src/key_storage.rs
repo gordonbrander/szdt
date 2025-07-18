@@ -1,6 +1,6 @@
+use crate::contact::Contact;
 use crate::db::migrations::migrate;
 use crate::did::DidKey;
-use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
 use crate::nickname::Nickname;
 use rusqlite::params;
@@ -18,6 +18,17 @@ fn migration1(tx: &rusqlite::Transaction) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+impl Contact {
+    fn from_contact_table_row(row: &rusqlite::Row) -> Result<Self, Error> {
+        let nickname_string: String = row.get(0)?;
+        let nickname = Nickname::try_from(nickname_string)?;
+        let did_url_string: String = row.get(1)?;
+        let did = DidKey::try_from(did_url_string)?;
+        let private_key = row.get(2)?;
+        Ok(Contact::new(nickname, did, private_key))
+    }
+}
+
 pub struct InsecureKeyStorage {
     db: rusqlite::Connection,
 }
@@ -30,26 +41,26 @@ impl InsecureKeyStorage {
     }
 
     /// Read key with name, returning Ed25519KeyMaterial with private key
-    pub fn key(&self, nickname: &Nickname) -> Result<Option<Ed25519KeyMaterial>, Error> {
+    pub fn contact(&self, nickname: &Nickname) -> Result<Option<Contact>, Error> {
         match self.db.query_row_and_then(
             "SELECT nickname, did, private_key FROM contact WHERE nickname = ?",
             params![nickname.to_string()],
-            map_contact_row,
+            Contact::from_contact_table_row,
         ) {
-            Ok((_nickname, key_material)) => Ok(Some(key_material)),
+            Ok(contact) => Ok(Some(contact)),
             Err(Error::Sqlite(rusqlite::Error::QueryReturnedNoRows)) => Ok(None),
             Err(e) => Err(e),
         }
     }
 
-    pub fn key_for_did(&self, did: &DidKey) -> Result<Option<Ed25519KeyMaterial>, Error> {
+    pub fn contact_for_did(&self, did: &DidKey) -> Result<Option<Contact>, Error> {
         let did_string = did.to_string();
         match self.db.query_row_and_then(
             "SELECT nickname, did, private_key FROM contact WHERE did = ?",
             [did_string],
-            map_contact_row,
+            Contact::from_contact_table_row,
         ) {
-            Ok((_nickname, key_material)) => Ok(Some(key_material)),
+            Ok(contact) => Ok(Some(contact)),
             Err(Error::Sqlite(rusqlite::Error::QueryReturnedNoRows)) => Ok(None),
             Err(e) => Err(e),
         }
@@ -62,14 +73,15 @@ impl InsecureKeyStorage {
         let default_nickname = Nickname::parse("anon")?;
         let nickname = Nickname::parse(&text).unwrap_or(default_nickname);
 
-        if self.key(&nickname)?.is_none() {
+        if self.contact(&nickname)?.is_none() {
             return Ok(nickname.clone());
         }
 
         for i in 0..128 {
-            let suffix = (i + 1).to_string();
+            // We start at 2 so we get "foo", "foo2", "foo3", etc.
+            let suffix = (i + 2).to_string();
             let draft_nickname = Nickname::with_suffix(nickname.to_string().as_str(), &suffix)?;
-            if self.key(&draft_nickname)?.is_none() {
+            if self.contact(&draft_nickname)?.is_none() {
                 return Ok(draft_nickname);
             }
         }
@@ -82,64 +94,33 @@ impl InsecureKeyStorage {
     /// Create a new public/private keypair, stored at nickname.
     /// Nickname must be unique. If a record with this nickname already exists,
     /// a Sqlite error will be returned.
-    pub fn create_key(
-        &self,
-        nickname: &Nickname,
-        key_material: &Ed25519KeyMaterial,
-    ) -> Result<(), Error> {
+    pub fn create_contact(&self, contact: &Contact) -> Result<(), Error> {
         self.db.execute(
             "INSERT INTO contact (nickname, did, private_key) VALUES (?, ?, ?)",
             params![
-                nickname.to_string(),
-                &key_material.did().to_string(),
-                &key_material.private_key(),
+                contact.nickname.to_string(),
+                &contact.did.to_string(),
+                &contact.private_key,
             ],
         )?;
         Ok(())
     }
 
-    pub fn get_or_create_key(&self, nickname: &Nickname) -> Result<Ed25519KeyMaterial, Error> {
-        if let Some(key_material) = self.key(nickname)? {
-            return Ok(key_material);
-        }
-        let key_material = Ed25519KeyMaterial::generate();
-        self.create_key(nickname, &key_material)?;
-        Ok(key_material)
-    }
-
-    pub fn delete_key(&self, nickname: &str) -> Result<(), Error> {
+    pub fn delete_contact(&self, nickname: &str) -> Result<(), Error> {
         self.db
             .execute("DELETE FROM contact WHERE nickname = ?", params![nickname])?;
         Ok(())
     }
 
     /// Get a HashMap of key nicknames to DID
-    pub fn keys(&self) -> Result<Vec<(Nickname, Ed25519KeyMaterial)>, Error> {
+    pub fn contacts(&self) -> Result<Vec<Contact>, Error> {
         let mut stmt = self
             .db
             .prepare("SELECT nickname, did, private_key FROM contact ORDER BY nickname")?;
-        let mut contacts: Vec<(Nickname, Ed25519KeyMaterial)> = Vec::new();
-        for key_material in stmt.query_and_then([], map_contact_row)? {
-            contacts.push(key_material?);
+        let mut contacts: Vec<Contact> = Vec::new();
+        for contact in stmt.query_and_then([], Contact::from_contact_table_row)? {
+            contacts.push(contact?);
         }
         Ok(contacts)
-    }
-}
-
-fn map_contact_row(row: &rusqlite::Row) -> Result<(Nickname, Ed25519KeyMaterial), Error> {
-    let nickname_string: String = row.get(0)?;
-    let nickname = Nickname::parse(&nickname_string)?;
-    let did_url: String = row.get(1)?;
-    let private_key: Option<Vec<u8>> = row.get(2)?;
-    match (did_url, private_key) {
-        (_did_url, Some(private_key)) => {
-            let key_material = Ed25519KeyMaterial::try_from_private_key(&private_key)?;
-            Ok((nickname, key_material))
-        }
-        (did_url, None) => {
-            let did = DidKey::try_from(did_url.as_str())?;
-            let key_material = Ed25519KeyMaterial::try_from(&did)?;
-            Ok((nickname, key_material))
-        }
     }
 }

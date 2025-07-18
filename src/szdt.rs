@@ -1,5 +1,6 @@
 use crate::bytes::Bytes;
 use crate::cbor_seq::{CborSeqReader, CborSeqWriter};
+use crate::contact::Contact;
 use crate::content_type;
 use crate::ed25519_key_material::Ed25519KeyMaterial;
 use crate::error::Error;
@@ -18,9 +19,9 @@ pub struct ArchiveReceipt {
 pub fn archive(
     dir: &Path,
     archive_file: &Path,
-    key_material: &Ed25519KeyMaterial,
-    nickname: Option<String>,
+    contact: &Contact,
 ) -> Result<ArchiveReceipt, Error> {
+    let key_material = Ed25519KeyMaterial::try_from(contact)?;
     let paths = walk_files(dir)?;
 
     let archive_file = File::create(archive_file)?;
@@ -38,9 +39,9 @@ pub fn archive(
         memo.protected.path = Some(relative_path.to_string_lossy().to_string());
         // Set content type (if we can guess it)
         memo.protected.content_type = content_type::guess_from_path(path);
-        memo.protected.iss_nickname = nickname.clone();
+        memo.protected.iss_nickname = Some(contact.nickname.to_string());
         // Sign memo
-        memo.sign(key_material)?;
+        memo.sign(&key_material)?;
         // Write memo
         archive_writer.write_block(&memo)?;
         // Write bytes

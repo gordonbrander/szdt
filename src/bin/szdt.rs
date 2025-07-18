@@ -7,6 +7,7 @@ use std::io::BufReader;
 use std::path::Path;
 use std::path::PathBuf;
 use szdt::config;
+use szdt::contact::Contact;
 use szdt::ed25519_key_material::Ed25519KeyMaterial;
 use szdt::file::write_file_deep;
 use szdt::key_storage::InsecureKeyStorage;
@@ -97,18 +98,21 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
 
     let nickname = Nickname::parse(&nickname).expect("Invalid nickname");
 
-    let key_material = config
+    let contact = config
         .key_storage
-        .key(&nickname)
-        .expect("Unable to access key")
-        .expect("No key with that nickname. Tip: create a key using `szdt key create`.");
+        .contact(&nickname)
+        .expect("Unable to access contacts")
+        .expect("No contact with that nickname. Tip: create a key using `szdt key create`.");
 
-    let archive_receipt = archive(&dir, &file_name, &key_material, Some(nickname.to_string()))
-        .expect("Unable to create archive");
+    let archive_receipt = archive(&dir, &file_name, &contact).expect("Unable to create archive");
 
     println!("{:<12} {}", "Archive:", file_name.display());
-    println!("{:<12} {}", "Nickname:", nickname);
-    println!("{:<12} {}", "DID:", key_material.did());
+    println!(
+        "{:<12} {} {}",
+        "Issuer:",
+        style(contact.nickname).bold().cyan(),
+        style(format!("<{}>", contact.did)).cyan()
+    );
     println!("");
     println!("{:<32} | {:<52}", "File", "Hash");
     for memo in &archive_receipt.manifest {
@@ -116,7 +120,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
         println!(
             "{:<32} | {:<52}",
             truncate(path, 32, ELLIPSIS),
-            memo.protected.src
+            style(memo.protected.src).green()
         );
     }
     println!("");
@@ -146,45 +150,56 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
             continue;
         };
 
-        if config
+        let contact: Contact = match config
             .key_storage
-            .key_for_did(&iss)
+            .contact_for_did(&iss)
             .expect("Unable to get key for did")
-            .is_none()
         {
-            let iss_nickname: &str = memo.protected.iss_nickname.as_deref().unwrap_or("anon");
-            let iss_key_material =
-                Ed25519KeyMaterial::try_from(iss).expect("Unable to get public key from did");
+            Some(contact) => contact,
+            None => {
+                let iss_nickname: &str = memo.protected.iss_nickname.as_deref().unwrap_or("anon");
+                let iss_key_material =
+                    Ed25519KeyMaterial::try_from(iss).expect("Unable to get public key from did");
 
-            let confirmation = Confirm::new()
-                .with_prompt(format!(
-                    "Unknown issuer {} {}. Do you want to add to trusted contacts?",
-                    style(format!("~{}", iss_nickname)).italic().bold().cyan(),
-                    style(format!("<{}>", iss)).cyan()
-                ))
-                .default(true)
-                .show_default(true)
-                .interact()
-                .expect("Could not interact with terminal");
+                let confirmation = Confirm::new()
+                    .with_prompt(format!(
+                        "Unknown issuer {} {}. Do you want to add to trusted contacts?",
+                        style(format!("~{}", iss_nickname)).italic().bold().cyan(),
+                        style(format!("<{}>", iss)).cyan()
+                    ))
+                    .default(true)
+                    .show_default(true)
+                    .interact()
+                    .expect("Could not interact with terminal");
 
-            if confirmation {
-                let unique_nickname = config
-                    .key_storage
-                    .unique_nickname(&iss_nickname)
-                    .expect("Nickname is not valid");
-                config
-                    .key_storage
-                    .create_key(&unique_nickname, &iss_key_material)
-                    .expect("Couldn't save key");
+                if confirmation {
+                    let unique_nickname = config
+                        .key_storage
+                        .unique_nickname(&iss_nickname)
+                        .expect("Nickname is not valid");
 
-                println!(
-                    "Saved to contacts as {}",
-                    style(unique_nickname).bold().cyan()
-                );
-                println!("");
-            } else {
-                println!("Skipping...");
-                continue;
+                    let contact = Contact::new(
+                        unique_nickname.clone(),
+                        iss_key_material.did(),
+                        iss_key_material.private_key(),
+                    );
+
+                    config
+                        .key_storage
+                        .create_contact(&contact)
+                        .expect("Couldn't save key");
+
+                    println!(
+                        "Saved to contacts as {}",
+                        style(unique_nickname).bold().cyan()
+                    );
+                    println!("");
+
+                    contact
+                } else {
+                    println!("Skipping...");
+                    continue;
+                }
             }
         };
 
@@ -206,15 +221,9 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
         println!("Path: {}", style(&file_path).bold());
         println!("Hash: {}", style(memo.protected.src.to_string()).green());
         println!(
-            "From: {}",
-            style(
-                memo.protected
-                    .iss
-                    .as_ref()
-                    .map(|iss| iss.to_string())
-                    .unwrap_or("None".to_string())
-            )
-            .cyan()
+            "Issuer: {} {}",
+            style(contact.nickname).bold().cyan(),
+            style(format!("<{}>", contact.did)).cyan()
         );
         println!("");
         count += 1;
@@ -232,24 +241,31 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
     if unique_nickname.as_str() != nickname {
         println!(
             "Nickname {} already exists, using {}",
-            nickname, unique_nickname
+            nickname, &unique_nickname
         );
         println!("");
     }
 
     let key_material = Ed25519KeyMaterial::generate();
 
+    let contact = Contact::new(
+        unique_nickname.clone(),
+        key_material.did(),
+        key_material.private_key(),
+    );
+
     config
         .key_storage
-        .create_key(&unique_nickname, &key_material)
+        .create_contact(&contact)
         .expect("Unable to create key");
 
     let mnemonic = Mnemonic::try_from(&key_material).expect("Unable to generate mnemonic");
 
+    println!("Key created:");
     println!(
         "{} {}",
-        style(unique_nickname).bold().cyan(),
-        format!("<{}>", style(key_material.did()).cyan())
+        style(&unique_nickname).bold().cyan(),
+        style(format!("<{}>", key_material.did())).cyan()
     );
     println!("");
     println!("Recovery phrase:");
@@ -257,19 +273,21 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
 }
 
 fn list_keys_cmd(config: &Config) {
-    println!("{:<1} | {:<16} | {:<56}", "🔒", "Nickname", "DID");
+    println!("{:<2} | {:<24} | {:<56}", "🔒", "Nickname", "DID");
 
-    for (nickname, key_material) in config.key_storage.keys().expect("Unable to read keys") {
-        let has_private_key = if key_material.private_key().is_some() {
+    for contact in config
+        .key_storage
+        .contacts()
+        .expect("Unable to read contacts")
+    {
+        let has_private_key = if contact.private_key.is_some() {
             "🔑"
         } else {
             " "
         };
         println!(
-            "{:<1} | {:<16} | {:<56}",
-            has_private_key,
-            nickname,
-            key_material.did()
+            "{:<2} | {:<24} | {:<56}",
+            has_private_key, contact.nickname, contact.did
         );
     }
 }
@@ -277,7 +295,7 @@ fn list_keys_cmd(config: &Config) {
 fn delete_key_cmd(config: &mut Config, nickname: &str) {
     config
         .key_storage
-        .delete_key(nickname)
+        .delete_contact(nickname)
         .expect("Unable to delete key");
 }
 

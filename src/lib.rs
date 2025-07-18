@@ -2,6 +2,7 @@ pub mod base58btc;
 pub mod bytes;
 pub mod cbor_seq;
 pub mod config;
+pub mod contact;
 pub mod content_type;
 pub(crate) mod db;
 pub mod did;
