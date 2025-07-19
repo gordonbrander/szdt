@@ -47,52 +47,55 @@ impl<R: AsyncBufRead + Unpin> AsyncCborSeqReader<R> {
         }
     }
 
+    /// Try to decode a CBOR object from the buffer, returning the value and consumed bytes
+    fn try_decode_from_buffer<T: DeserializeOwned>(&self) -> Result<Option<(T, usize)>, Error> {
+        if self.buffer.is_empty() {
+            return Ok(None);
+        }
+
+        let mut cursor = std::io::Cursor::new(&self.buffer);
+        match serde_ipld_dagcbor::de::from_reader_once(&mut cursor) {
+            Ok(value) => {
+                let consumed = cursor.position() as usize;
+                Ok(Some((value, consumed)))
+            }
+            Err(serde_ipld_dagcbor::DecodeError::Eof) => Ok(None), // Need more data
+            Err(_) => Ok(None), // Other decode error - try reading more data
+        }
+    }
+
     /// Read the next CBOR block asynchronously
     pub async fn read_block_async<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
         loop {
-            // First, try to decode from existing buffer
-            if !self.buffer.is_empty() {
-                let mut cursor = std::io::Cursor::new(&self.buffer);
-                match serde_ipld_dagcbor::de::from_reader_once(&mut cursor) {
-                    Ok(value) => {
-                        // Successfully decoded one object
-                        let consumed = cursor.position() as usize;
-                        // Remove consumed data from buffer
-                        self.buffer.drain(0..consumed);
-                        return Ok(value);
-                    }
-                    Err(serde_ipld_dagcbor::DecodeError::Eof) => {
-                        // Need more data, continue to read loop
-                    }
-                    Err(_err) => {
-                        // Other decode error - try reading more data
-                    }
-                }
+            // Try to decode from existing buffer
+            if let Some((value, consumed)) = self.try_decode_from_buffer()? {
+                self.buffer.drain(0..consumed);
+                return Ok(value);
             }
 
             // Read more data into buffer
             let mut temp_buf = [0u8; 1024];
             match self.reader.read(&mut temp_buf).await {
                 Ok(0) => {
-                    // EOF - try one final decode attempt
-                    if self.buffer.is_empty() {
-                        return Err(Error::Eof);
-                    }
-
-                    let mut cursor = std::io::Cursor::new(&self.buffer);
-                    match serde_ipld_dagcbor::de::from_reader_once(&mut cursor) {
-                        Ok(value) => {
-                            let consumed = cursor.position() as usize;
-                            self.buffer.drain(0..consumed);
-                            return Ok(value);
+                    // EOF - return error if buffer is empty, otherwise try final decode
+                    return if self.buffer.is_empty() {
+                        Err(Error::Eof)
+                    } else {
+                        // Final decode attempt with strict error handling
+                        let mut cursor = std::io::Cursor::new(&self.buffer);
+                        match serde_ipld_dagcbor::de::from_reader_once(&mut cursor) {
+                            Ok(value) => {
+                                let consumed = cursor.position() as usize;
+                                self.buffer.drain(0..consumed);
+                                Ok(value)
+                            }
+                            Err(serde_ipld_dagcbor::DecodeError::Eof) => Err(Error::Eof),
+                            Err(err) => Err(Error::CborDecode(err.to_string())),
                         }
-                        Err(serde_ipld_dagcbor::DecodeError::Eof) => return Err(Error::Eof),
-                        Err(err) => return Err(Error::CborDecode(err.to_string())),
-                    }
+                    };
                 }
                 Ok(n) => {
                     self.buffer.extend_from_slice(&temp_buf[..n]);
-                    // Continue loop to try decoding again
                 }
                 Err(err) => return Err(Error::Io(err)),
             }
