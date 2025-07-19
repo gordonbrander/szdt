@@ -4,7 +4,7 @@ use ed25519_dalek::PUBLIC_KEY_LENGTH;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
+type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 
 /// The multicodec prefix for ed25519 public key is 0xed01.
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
