@@ -21,7 +21,6 @@ pub struct UnprotectedHeaders {
     pub extra: HashMap<String, Value>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProtectedHeaders {
     /// Issuer (DID)

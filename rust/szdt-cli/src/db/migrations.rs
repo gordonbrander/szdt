@@ -12,10 +12,7 @@ type MigrationFn = fn(&Transaction) -> Result<(), SqlError>;
 /// progress.
 ///
 /// Will roll back to last good version on error.
-pub fn migrate(
-    conn: &mut Connection,
-    migrations: &[MigrationFn],
-) -> Result<usize, MigrationError> {
+pub fn migrate(conn: &mut Connection, migrations: &[MigrationFn]) -> Result<usize, MigrationError> {
     let current_version = get_user_version(conn)?;
 
     let mut last_successful_version = current_version;
@@ -132,8 +129,7 @@ mod tests {
     fn test_migration_failure_rollback() {
         let mut conn = create_test_db();
 
-        let migrations: &[MigrationFn] =
-            &[migration1, failing_migration];
+        let migrations: &[MigrationFn] = &[migration1, failing_migration];
         let error =
             migrate(&mut conn, migrations).expect_err("Migrate should have returned an error");
 

@@ -1,14 +1,14 @@
 use crate::error::Error;
 use crate::file::walk_files;
+use std::fs::{self, File};
+use std::io::BufRead;
+use std::path::Path;
 use szdt_core::bytes::Bytes;
 use szdt_core::cbor_seq::{CborSeqReader, CborSeqWriter};
 use szdt_core::contact::Contact;
 use szdt_core::content_type;
 use szdt_core::ed25519_key_material::Ed25519KeyMaterial;
 use szdt_core::memo::Memo;
-use std::fs::{self, File};
-use std::io::BufRead;
-use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct ArchiveReceipt {

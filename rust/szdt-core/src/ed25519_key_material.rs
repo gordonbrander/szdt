@@ -46,7 +46,8 @@ impl Ed25519KeyMaterial {
 
     /// Get the private key portion
     pub fn private_key(&self) -> Option<Vec<u8>> {
-        self.private_key.map(|private_key| private_key.as_slice().to_vec())
+        self.private_key
+            .map(|private_key| private_key.as_slice().to_vec())
     }
 
     /// Get the public key portion
