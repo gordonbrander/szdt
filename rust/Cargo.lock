@@ -968,22 +968,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "szdt"
+name = "szdt-cli"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "console 0.16.0",
+ "dialoguer",
+ "dirs",
+ "mime_guess2",
+ "rusqlite",
+ "serde",
+ "serde_ipld_dagcbor",
+ "szdt-core",
+ "tempfile",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "szdt-core"
 version = "0.0.1"
 dependencies = [
  "bip39",
  "blake3",
  "bs58",
  "cbor4ii 1.0.0",
- "clap",
- "console 0.16.0",
  "data-encoding",
- "dialoguer",
- "dirs",
  "ed25519-dalek",
  "mime_guess2",
  "rand 0.9.1",
- "rusqlite",
  "serde",
  "serde_ipld_dagcbor",
  "tempfile",

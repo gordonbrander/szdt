@@ -1,13 +1,11 @@
-[package]
-name = "szdt"
-version = "0.0.1"
-edition = "2024"
+[workspace]
+members = [
+    "szdt-core",
+    "szdt-cli",
+]
+resolver = "2"
 
-[[bin]]
-name = "szdt"
-path = "src/bin/szdt.rs"
-
-[dependencies]
+[workspace.dependencies]
 bip39 = "2.2.0"
 blake3 = { version = "1.8.2", features = ["serde"] }
 bs58 = "0.5.1"
@@ -29,6 +27,4 @@ rusqlite = "0.37.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_ipld_dagcbor = "=0.6.3"
 thiserror = "2.0.12"
-
-[dev-dependencies]
 tempfile = "3.19.1"
