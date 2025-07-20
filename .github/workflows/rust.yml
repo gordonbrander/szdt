@@ -2,21 +2,37 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v4
+      - name: Check formatting
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: Lint with Clippy
+        working-directory: rust
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Build workspace
+        working-directory: rust
+        run: cargo build --workspace --verbose
+      - name: Test workspace
+        working-directory: rust
+        run: cargo test --workspace --verbose
+      - name: Test szdt-core
+        working-directory: rust
+        run: cargo test --package szdt-core --verbose
+      - name: Test szdt-cli
+        working-directory: rust
+        run: cargo test --package szdt-cli --verbose
+      - name: Build CLI binary
+        working-directory: rust
+        run: cargo build --bin szdt --release

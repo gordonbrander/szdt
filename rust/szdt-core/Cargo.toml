@@ -1,0 +1,20 @@
+[package]
+name = "szdt-core"
+version = "0.0.1"
+edition = "2024"
+description = "Core SZDT functionality for encoding, decoding, signing, and hashing"
+
+[dependencies]
+bip39 = { workspace = true }
+blake3 = { workspace = true }
+bs58 = { workspace = true }
+cbor4ii = { workspace = true }
+data-encoding = { workspace = true }
+ed25519-dalek = { workspace = true }
+mime_guess2 = { workspace = true }
+serde = { workspace = true }
+serde_ipld_dagcbor = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

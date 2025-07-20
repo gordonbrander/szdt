@@ -1,0 +1,25 @@
+[package]
+name = "szdt-cli"
+version = "0.0.1"
+edition = "2024"
+description = "SZDT command-line interface and filesystem utilities"
+
+[[bin]]
+name = "szdt"
+path = "src/bin/szdt.rs"
+
+[dependencies]
+szdt-core = { path = "../szdt-core" }
+clap = { workspace = true }
+console = { workspace = true }
+dialoguer = { workspace = true }
+dirs = { workspace = true }
+mime_guess2 = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_ipld_dagcbor = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
