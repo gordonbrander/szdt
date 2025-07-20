@@ -19,20 +19,20 @@ macro_rules! console_log {
 }
 
 // WASM wrapper modules
-pub mod hash;
-pub mod ed25519_key_material;
-pub mod memo;
-pub mod did_key;
-pub mod mnemonic;
 pub mod cbor_seq;
+pub mod did_key;
+pub mod ed25519_key_material;
+pub mod hash;
+pub mod memo;
+pub mod mnemonic;
 
 // Re-export main types for easy use
-pub use hash::Hash;
-pub use ed25519_key_material::Ed25519KeyMaterial;
-pub use memo::Memo;
-pub use did_key::DidKey;
-pub use mnemonic::Mnemonic;
 pub use cbor_seq::{CborSeqReader, CborSeqWriter};
+pub use did_key::DidKey;
+pub use ed25519_key_material::Ed25519KeyMaterial;
+pub use hash::Hash;
+pub use memo::Memo;
+pub use mnemonic::Mnemonic;
 
 // Utility function to initialize the WASM module
 #[wasm_bindgen(start)]
