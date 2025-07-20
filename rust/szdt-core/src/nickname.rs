@@ -37,7 +37,7 @@ impl Nickname {
             nickname.remove(nickname.len() - 1);
         }
 
-        if nickname.len() < 1 {
+        if nickname.is_empty() {
             return Err(NicknameError::TooShort);
         }
 

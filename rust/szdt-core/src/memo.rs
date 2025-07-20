@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 /// Unprotected headers for a memo.
 /// Contains metadata that is not signed and can be freely modified.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct UnprotectedHeaders {
     /// Ed25519 signature over protected memo fields
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -21,14 +21,6 @@ pub struct UnprotectedHeaders {
     pub extra: HashMap<String, Value>,
 }
 
-impl Default for UnprotectedHeaders {
-    fn default() -> Self {
-        Self {
-            sig: None,
-            extra: HashMap::new(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProtectedHeaders {
@@ -110,7 +102,7 @@ impl Memo {
 
     /// Create a memo wrapping empty body content
     pub fn empty() -> Self {
-        Self::new(Hash::new(&[]))
+        Self::new(Hash::new([]))
     }
 
     /// Sign the headers with the given key material
@@ -215,7 +207,7 @@ mod tests {
         let body = create_test_body();
         let body_hash = Hash::new(&body);
 
-        let headers = ProtectedHeaders::new(body_hash.clone());
+        let headers = ProtectedHeaders::new(body_hash);
 
         assert!(headers.iss.is_none());
         assert_eq!(headers.src, body_hash);
@@ -229,7 +221,7 @@ mod tests {
     #[test]
     fn test_memo_new() {
         let body_content = "Hello World";
-        let memo = Memo::for_body(&body_content).unwrap();
+        let memo = Memo::for_body(body_content).unwrap();
 
         let cbor_bytes = serde_ipld_dagcbor::to_vec(body_content).unwrap();
         assert_eq!(memo.protected.src, Hash::new(&cbor_bytes));
@@ -275,7 +267,7 @@ mod tests {
     #[test]
     fn test_memo_validate_unsigned() {
         let body_content = b"Hello World".to_vec();
-        let memo = Memo::for_body(&body_content).unwrap();
+        let memo = Memo::for_body(body_content).unwrap();
 
         // Unsigned memo should be invalid
         assert!(memo.validate(None).is_err());
@@ -335,7 +327,7 @@ mod tests {
     #[test]
     fn test_memo_cbor_type_field() {
         let body_content = b"Hello World".to_vec();
-        let memo = Memo::for_body(&body_content).unwrap();
+        let memo = Memo::for_body(body_content).unwrap();
 
         // Serialize memo to CBOR
         let cbor_bytes = serde_ipld_dagcbor::to_vec(&memo).unwrap();

@@ -18,7 +18,7 @@ impl HashSeq {
         }
     }
 
-    pub fn append(&mut self, hash: Hash) -> () {
+    pub fn append(&mut self, hash: Hash) {
         self.0.extend_from_slice(hash.as_bytes());
     }
 
@@ -82,7 +82,7 @@ impl From<HashSeq> for Hash {
 
 struct HashSeqVisitor;
 
-impl<'de> serde::de::Visitor<'de> for HashSeqVisitor {
+impl serde::de::Visitor<'_> for HashSeqVisitor {
     type Value = HashSeq;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

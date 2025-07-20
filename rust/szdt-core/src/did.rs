@@ -42,7 +42,7 @@ impl DidKey {
             ));
         };
         // Extract the public key
-        DidKey::new(&key_bytes)
+        DidKey::new(key_bytes)
     }
 
     pub fn public_key(&self) -> &ed25519::PublicKey {

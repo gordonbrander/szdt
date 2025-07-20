@@ -69,7 +69,7 @@ impl InsecureKeyStorage {
     /// unique by appending a random suffix.
     pub fn unique_nickname(&self, text: &str) -> Result<Nickname, Error> {
         let default_nickname = Nickname::parse("anon")?;
-        let nickname = Nickname::parse(&text).unwrap_or(default_nickname);
+        let nickname = Nickname::parse(text).unwrap_or(default_nickname);
 
         if self.contact(&nickname)?.is_none() {
             return Ok(nickname.clone());

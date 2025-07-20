@@ -1,6 +1,8 @@
 use rusqlite::{Connection, Error as SqlError, Transaction};
 use thiserror::Error;
 
+type MigrationFn = fn(&Transaction) -> Result<(), SqlError>;
+
 /// Migrate the database to the latest version.
 /// Applies database migrations in order, starting from the current user_version.
 ///
@@ -12,7 +14,7 @@ use thiserror::Error;
 /// Will roll back to last good version on error.
 pub fn migrate(
     conn: &mut Connection,
-    migrations: &[fn(&Transaction) -> Result<(), SqlError>],
+    migrations: &[MigrationFn],
 ) -> Result<usize, MigrationError> {
     let current_version = get_user_version(conn)?;
 
@@ -33,7 +35,7 @@ pub fn migrate(
                     tx.rollback()?;
                     return Err(MigrationError {
                         version: last_successful_version,
-                        error: error,
+                        error,
                     });
                 }
             }
@@ -97,7 +99,7 @@ mod tests {
     #[test]
     fn test_empty_migrations() {
         let mut conn = create_test_db();
-        let migrations: &[fn(&Transaction) -> Result<(), SqlError>] = &[];
+        let migrations: &[MigrationFn] = &[];
 
         let result = migrate(&mut conn, migrations).unwrap();
         assert_eq!(result, 0);
@@ -108,7 +110,7 @@ mod tests {
     fn test_single_migration() {
         let mut conn = create_test_db();
 
-        let migrations: &[fn(&Transaction) -> Result<(), SqlError>] = &[migration1];
+        let migrations: &[MigrationFn] = &[migration1];
         let result = migrate(&mut conn, migrations).unwrap();
 
         assert_eq!(result, 1);
@@ -119,7 +121,7 @@ mod tests {
     fn test_multiple_migrations() {
         let mut conn = create_test_db();
 
-        let migrations: &[fn(&Transaction) -> Result<(), SqlError>] = &[migration1, migration2];
+        let migrations: &[MigrationFn] = &[migration1, migration2];
         let result = migrate(&mut conn, migrations).unwrap();
 
         assert_eq!(result, 2);
@@ -130,7 +132,7 @@ mod tests {
     fn test_migration_failure_rollback() {
         let mut conn = create_test_db();
 
-        let migrations: &[fn(&Transaction) -> Result<(), SqlError>] =
+        let migrations: &[MigrationFn] =
             &[migration1, failing_migration];
         let error =
             migrate(&mut conn, migrations).expect_err("Migrate should have returned an error");
@@ -143,7 +145,7 @@ mod tests {
     fn test_idempotent_migrations() {
         let mut conn = create_test_db();
 
-        let migrations: &[fn(&Transaction) -> Result<(), SqlError>] = &[migration1];
+        let migrations: &[MigrationFn] = &[migration1];
 
         let result1 = migrate(&mut conn, migrations).unwrap();
         assert_eq!(result1, 1);

@@ -96,7 +96,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
     let file_name =
         PathBuf::from(dir.file_stem().unwrap_or(default_file_name)).with_extension("szdt");
 
-    let nickname = Nickname::parse(&nickname).expect("Invalid nickname");
+    let nickname = Nickname::parse(nickname).expect("Invalid nickname");
 
     let contact = config
         .key_storage
@@ -104,7 +104,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
         .expect("Unable to access contacts")
         .expect("No contact with that nickname. Tip: create a key using `szdt key create`.");
 
-    let archive_receipt = archive(&dir, &file_name, &contact).expect("Unable to create archive");
+    let archive_receipt = archive(dir, &file_name, &contact).expect("Unable to create archive");
 
     println!("{:<12} {}", "Archive:", file_name.display());
     println!(
@@ -113,7 +113,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
         style(contact.nickname).bold().cyan(),
         style(format!("<{}>", contact.did)).cyan()
     );
-    println!("");
+    println!();
     println!("{:<32} | {:<52}", "File", "Hash");
     for memo in &archive_receipt.manifest {
         let path = memo.protected.path.as_deref().unwrap_or("None");
@@ -123,7 +123,7 @@ fn archive_cmd(config: &Config, dir: &Path, nickname: &str) {
             style(memo.protected.src).green()
         );
     }
-    println!("");
+    println!();
     println!("Archived {} files", &archive_receipt.manifest.len());
 }
 
@@ -152,7 +152,7 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
 
         let contact: Contact = match config
             .key_storage
-            .contact_for_did(&iss)
+            .contact_for_did(iss)
             .expect("Unable to get key for did")
         {
             Some(contact) => contact,
@@ -175,7 +175,7 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
                 if confirmation {
                     let unique_nickname = config
                         .key_storage
-                        .unique_nickname(&iss_nickname)
+                        .unique_nickname(iss_nickname)
                         .expect("Nickname is not valid");
 
                     let contact = Contact::new(
@@ -193,7 +193,7 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
                         "Saved to contacts as {}",
                         style(unique_nickname).bold().cyan()
                     );
-                    println!("");
+                    println!();
 
                     contact
                 } else {
@@ -225,7 +225,7 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
             style(contact.nickname).bold().cyan(),
             style(format!("<{}>", contact.did)).cyan()
         );
-        println!("");
+        println!();
         count += 1;
     }
 
@@ -243,7 +243,7 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
             "Nickname {} already exists, using {}",
             nickname, &unique_nickname
         );
-        println!("");
+        println!();
     }
 
     let key_material = Ed25519KeyMaterial::generate();
@@ -267,7 +267,7 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
         style(&unique_nickname).bold().cyan(),
         style(format!("<{}>", key_material.did())).cyan()
     );
-    println!("");
+    println!();
     println!("Recovery phrase:");
     println!("{}", mnemonic);
 }

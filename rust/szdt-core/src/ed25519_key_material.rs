@@ -30,7 +30,7 @@ impl Ed25519KeyMaterial {
         let private_key = to_private_key(private_key)?;
         let public_key = derive_public_key(&private_key)?;
         Ok(Self {
-            public_key: public_key,
+            public_key,
             private_key: Some(private_key),
         })
     }
@@ -46,11 +46,7 @@ impl Ed25519KeyMaterial {
 
     /// Get the private key portion
     pub fn private_key(&self) -> Option<Vec<u8>> {
-        if let Some(private_key) = self.private_key {
-            Some(private_key.as_slice().to_vec())
-        } else {
-            None
-        }
+        self.private_key.map(|private_key| private_key.as_slice().to_vec())
     }
 
     /// Get the public key portion
@@ -60,8 +56,7 @@ impl Ed25519KeyMaterial {
 
     pub fn did(&self) -> DidKey {
         let public_key = self.public_key();
-        let did = DidKey::new(&public_key).expect("Should be valid public key");
-        did
+        DidKey::new(&public_key).expect("Should be valid public key")
     }
 
     /// Sign payload, returning signature bytes

@@ -85,7 +85,7 @@ impl<'de> Deserialize<'de> for Hash {
 
 struct HashVisitor;
 
-impl<'de> Visitor<'de> for HashVisitor {
+impl Visitor<'_> for HashVisitor {
     type Value = Hash;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
