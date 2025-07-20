@@ -45,8 +45,6 @@ pub enum Error {
     Did(#[from] did::Error),
     #[error("BIP39 error: {0}")]
     Bip39(#[from] bip39::Error),
-    #[error("Error stripping path prefix")]
-    StripPrefix(#[from] std::path::StripPrefixError),
     #[error("Private key missing: {0}")]
     PrivateKeyMissing(String),
     #[error("Archive integrity error: {0}")]
@@ -65,8 +63,6 @@ pub enum Error {
     Eof,
     #[error("Value error: {0}")]
     Value(String),
-    #[error("File system error: {0}")]
-    Fs(String),
 }
 
 impl From<serde_ipld_dagcbor::DecodeError<std::io::Error>> for Error {
