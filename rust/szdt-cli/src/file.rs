@@ -41,9 +41,7 @@ pub fn write_file_deep<P: AsRef<Path>, C: AsRef<[u8]>>(
     content: C,
 ) -> Result<(), io::Error> {
     let path = path.as_ref();
-    let parent = path
-        .parent()
-        .ok_or_else(|| io::Error::other("no parent"))?;
+    let parent = path.parent().ok_or_else(|| io::Error::other("no parent"))?;
     fs::create_dir_all(parent)?;
     fs::write(path, content)
 }
