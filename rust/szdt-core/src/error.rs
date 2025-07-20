@@ -47,7 +47,7 @@ pub enum Error {
     Bip39(#[from] bip39::Error),
     #[error("Private key missing: {0}")]
     PrivateKeyMissing(String),
-    #[error("Archive integrity error: {0}")]
+    #[error("Data integrity error: {0}")]
     IntegrityError(String),
     #[error("Memo issuer DID is missing")]
     MemoIssMissing,
