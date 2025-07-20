@@ -190,11 +190,11 @@ impl Memo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ed25519_key_material::Ed25519KeyMaterial;
     use crate::hash::Hash;
 
     fn create_test_key() -> Ed25519KeyMaterial {
-        Ed25519KeyMaterial::generate()
+        let seed = [0u8; 32];
+        Ed25519KeyMaterial::generate_from_entropy(&seed).unwrap()
     }
 
     fn create_test_body() -> Vec<u8> {

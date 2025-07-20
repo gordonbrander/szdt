@@ -1,6 +1,6 @@
 use crate::did::DidKey;
 use crate::ed25519::{
-    PrivateKey, PublicKey, derive_public_key, generate_keypair, sign, to_private_key,
+    PrivateKey, PublicKey, derive_public_key, generate_keypair_from_entropy, sign, to_private_key,
     to_public_key, verify,
 };
 use crate::error::Error;
@@ -17,12 +17,12 @@ pub struct Ed25519KeyMaterial {
 }
 
 impl Ed25519KeyMaterial {
-    pub fn generate() -> Self {
-        let (public_key, private_key) = generate_keypair();
-        Self {
+    pub fn generate_from_entropy(seed: &[u8]) -> Result<Self, Error> {
+        let (public_key, private_key) = generate_keypair_from_entropy(seed)?;
+        Ok(Self {
             public_key,
             private_key: Some(private_key),
-        }
+        })
     }
 
     /// Initialize from private key bytes
@@ -122,12 +122,13 @@ impl TryFrom<&DidKey> for Ed25519KeyMaterial {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ed25519::generate_keypair;
+    use crate::ed25519::generate_keypair_from_entropy;
 
     #[test]
     fn test_ed25519_key_material_roundtrip() {
-        // Generate a signing key
-        let (pubkey, privkey) = generate_keypair();
+        // Generate a signing key with test entropy
+        let test_seed = [3u8; 32];
+        let (pubkey, privkey) = generate_keypair_from_entropy(&test_seed).unwrap();
 
         // Create Ed25519KeyMaterial from the signing key
         let key_material = Ed25519KeyMaterial::try_from_private_key(&privkey).unwrap();

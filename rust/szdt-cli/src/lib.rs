@@ -3,4 +3,5 @@ pub mod db;
 pub mod error;
 pub mod file;
 pub mod key_storage;
+pub mod rand;
 pub mod szdt;

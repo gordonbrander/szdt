@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use szdt_cli::config;
 use szdt_cli::file::write_file_deep;
 use szdt_cli::key_storage::InsecureKeyStorage;
+use szdt_cli::rand::generate_entropy;
 use szdt_cli::szdt::{Unarchiver, archive};
 use szdt_core::contact::Contact;
 use szdt_core::ed25519_key_material::Ed25519KeyMaterial;
@@ -246,7 +247,9 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
         println!();
     }
 
-    let key_material = Ed25519KeyMaterial::generate();
+    let entropy = generate_entropy().expect("Unable to generate private key entropy");
+    let key_material = Ed25519KeyMaterial::generate_from_entropy(&entropy)
+        .expect("Unable to cryptographic key material");
 
     let contact = Contact::new(
         unique_nickname.clone(),

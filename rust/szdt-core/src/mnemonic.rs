@@ -12,7 +12,7 @@ impl Mnemonic {
 
     /// Parse a BIP39 mnemonic seed phrase into a Mnemonic
     pub fn parse(mnemonic: &str) -> Result<Self, Error> {
-        let mnemonic = bip39::Mnemonic::parse(mnemonic)?;
+        let mnemonic = bip39::Mnemonic::parse_normalized(mnemonic)?;
         Ok(Self(mnemonic))
     }
 

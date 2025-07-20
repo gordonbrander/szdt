@@ -12,6 +12,8 @@ pub enum Error {
     MigrationError(#[from] MigrationError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Unable generate randomness: {0}")]
+    Rand(String),
     #[error("Error stripping path prefix")]
     StripPrefix(#[from] std::path::StripPrefixError),
     #[error("File system error: {0}")]

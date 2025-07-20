@@ -2,27 +2,31 @@ use ed25519_dalek::{
     self, PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, SecretKey, Signature, Signer, SigningKey, Verifier,
     VerifyingKey,
 };
-use rand::{TryRngCore, rngs::OsRng};
 use thiserror::Error;
 
 pub type PublicKey = [u8; PUBLIC_KEY_LENGTH];
 pub type SignatureBytes = [u8; 64];
 pub type PrivateKey = [u8; SECRET_KEY_LENGTH];
 
-/// Generate a new signing keypair.
+/// Generate a signing keypair from 32 bytes of entropy.
 /// Returns a tuple of `(pubkey, privkey)`.
-pub fn generate_keypair() -> (PublicKey, PrivateKey) {
+pub fn generate_keypair_from_entropy(seed: &[u8]) -> Result<(PublicKey, PrivateKey), Error> {
+    if seed.len() != SECRET_KEY_LENGTH {
+        return Err(Error::InvalidKey(format!(
+            "Seed must be {} bytes, got {}",
+            SECRET_KEY_LENGTH,
+            seed.len()
+        )));
+    }
+
     let mut secret_key = [0u8; SECRET_KEY_LENGTH];
-    // Fill the array with random bytes
-    OsRng
-        .try_fill_bytes(&mut secret_key)
-        .expect("Should be able to generate random bytes");
+    secret_key.copy_from_slice(seed);
 
     let signing_key = SigningKey::from_bytes(&secret_key);
-    (
+    Ok((
         signing_key.verifying_key().to_bytes(),
         signing_key.to_bytes(),
-    )
+    ))
 }
 
 /// Get the public key from a private key.
@@ -124,8 +128,9 @@ mod tests {
 
     #[test]
     fn test_derive_public_key_derives_the_public_key() {
-        // Generate a keypair to test with
-        let (expected_pubkey, privkey) = generate_keypair();
+        // Generate a keypair to test with using test entropy
+        let test_seed = [1u8; SECRET_KEY_LENGTH];
+        let (expected_pubkey, privkey) = generate_keypair_from_entropy(&test_seed).unwrap();
 
         // Derive public key from private key
         let derived_pubkey = derive_public_key(&privkey).unwrap();
@@ -144,7 +149,8 @@ mod tests {
 
     #[test]
     fn test_sign_verify_roundtrip() {
-        let (pubkey, privkey) = generate_keypair();
+        let test_seed = [2u8; SECRET_KEY_LENGTH];
+        let (pubkey, privkey) = generate_keypair_from_entropy(&test_seed).unwrap();
         let payload = b"test message";
 
         // Valid signing
@@ -160,6 +166,20 @@ mod tests {
         // Test with invalid private key length
         let invalid_privkey = vec![0u8; SECRET_KEY_LENGTH - 1];
         let result = sign(b"test message", &invalid_privkey);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generate_keypair_from_seed_valid() {
+        let test_seed = [42u8; SECRET_KEY_LENGTH];
+        let result = generate_keypair_from_entropy(&test_seed);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_generate_keypair_from_seed_invalid_length() {
+        let invalid_seed = vec![0u8; SECRET_KEY_LENGTH - 1];
+        let result = generate_keypair_from_entropy(&invalid_seed);
         assert!(result.is_err());
     }
 }

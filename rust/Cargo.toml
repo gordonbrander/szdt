@@ -1,12 +1,12 @@
 [workspace]
-members = [
-    "szdt-core",
-    "szdt-cli",
-]
+members = ["szdt-core", "szdt-cli", "szdt-wasm"]
 resolver = "2"
 
 [workspace.dependencies]
-bip39 = "2.2.0"
+bip39 = { version = "2.2.0", default-features = false, features = [
+    "std",
+    "alloc",
+] }
 blake3 = { version = "1.8.2", features = ["serde"] }
 bs58 = "0.5.1"
 cbor4ii = { version = "1.0.0", features = ["serde", "serde1", "use_alloc"] }
@@ -15,14 +15,15 @@ console = "0.16.0"
 data-encoding = "2.8.0"
 dialoguer = "0.11.0"
 dirs = "6.0.0"
-ed25519-dalek = { version = "2.2.0", features = [
+ed25519-dalek = { version = "2.2.0", default-features = false, features = [
     "alloc",
     "digest",
     "serde",
     "signature",
+    "std",
 ] }
 mime_guess2 = "2.3.1"
-rand = "0.9.1"
+rand = { version = "0.9.1" }
 rusqlite = "0.37.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_ipld_dagcbor = "=0.6.3"
