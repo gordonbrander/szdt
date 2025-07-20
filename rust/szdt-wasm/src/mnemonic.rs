@@ -35,8 +35,7 @@ impl Mnemonic {
         let word_count = mnemonic.split_whitespace().count();
         if ![12, 15, 18, 21, 24].contains(&word_count) {
             return Err(JsError::new(&format!(
-                "Mnemonic must contain 12, 15, 18, 21, or 24 words, got {}",
-                word_count
+                "Mnemonic must contain 12, 15, 18, 21, or 24 words, got {word_count}",
             )));
         }
 
@@ -45,6 +44,8 @@ impl Mnemonic {
     }
 
     /// Get the mnemonic as a string
+    // Allow inherent_to_string so we can expose `.toString()` via wasm_bindgen
+    #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         self.inner.to_string()

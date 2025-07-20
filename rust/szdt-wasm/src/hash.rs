@@ -41,7 +41,9 @@ impl Hash {
         self.inner.as_bytes().to_vec()
     }
 
-    /// Get the hash as a base32 string representation  
+    /// Get the hash as a base32 string representation
+    // Allow inherent_to_string so we can expose `.toString()` via wasm_bindgen
+    #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         self.inner.to_string()

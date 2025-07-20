@@ -14,9 +14,9 @@ pub struct Memo {
 impl Memo {
     /// Create a new memo with the given body hash
     #[wasm_bindgen(constructor)]
-    pub fn new(body_hash: &Hash) -> Memo {
+    pub fn new(body_hash: Hash) -> Memo {
         Self {
-            inner: CoreMemo::new(body_hash.as_core().clone()),
+            inner: CoreMemo::new(body_hash.into_core()),
         }
     }
 
@@ -112,7 +112,7 @@ impl Memo {
     /// Get the body hash
     #[wasm_bindgen]
     pub fn body_hash(&self) -> Hash {
-        Hash::from_core(self.inner.protected.src.clone())
+        Hash::from_core(self.inner.protected.src)
     }
 
     /// Get the timestamp when the memo was issued

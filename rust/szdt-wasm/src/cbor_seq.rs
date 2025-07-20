@@ -100,6 +100,7 @@ impl CborSeqReader {
 }
 
 /// WASM wrapper for writing CBOR sequences
+#[derive(Debug, Default)]
 #[wasm_bindgen]
 pub struct CborSeqWriter {
     data: Vec<u8>,

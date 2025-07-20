@@ -41,6 +41,8 @@ impl DidKey {
     }
 
     /// Get the DID key as a string
+    // Allow inherent_to_string so we can expose `.toString()` via wasm_bindgen
+    #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         self.inner.to_string()
