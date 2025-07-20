@@ -47,7 +47,7 @@ impl Nickname {
     pub fn with_suffix(text: &str, suffix: &str) -> Result<Nickname, Error> {
         let suffix_len = suffix.chars().count();
         let truncated = truncate(text, NICKNAME_MAX_LENGTH - suffix_len, "");
-        let text_with_suffix = format!("{}{}", truncated, suffix);
+        let text_with_suffix = format!("{truncated}{suffix}");
         let nickname = Self::parse(&text_with_suffix)?;
         Ok(nickname)
     }

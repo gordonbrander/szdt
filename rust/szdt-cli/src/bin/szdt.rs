@@ -164,8 +164,8 @@ fn unarchive_cmd(config: &mut Config, dir: Option<PathBuf>, file_path: PathBuf) 
                 let confirmation = Confirm::new()
                     .with_prompt(format!(
                         "Unknown issuer {} {}. Do you want to add to trusted contacts?",
-                        style(format!("~{}", iss_nickname)).italic().bold().cyan(),
-                        style(format!("<{}>", iss)).cyan()
+                        style(format!("~{iss_nickname}")).italic().bold().cyan(),
+                        style(format!("<{iss}>")).cyan()
                     ))
                     .default(true)
                     .show_default(true)
@@ -269,7 +269,7 @@ fn create_key_cmd(config: &mut Config, nickname: &str) {
     );
     println!();
     println!("Recovery phrase:");
-    println!("{}", mnemonic);
+    println!("{mnemonic}");
 }
 
 fn list_keys_cmd(config: &Config) {

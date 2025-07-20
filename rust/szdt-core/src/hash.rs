@@ -61,7 +61,7 @@ impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hash_base32_hex = BASE32_NOPAD.encode(self.0.as_bytes());
         let hash_base32_hex_lowercase = hash_base32_hex.to_lowercase();
-        write!(f, "{}", hash_base32_hex_lowercase)
+        write!(f, "{hash_base32_hex_lowercase}")
     }
 }
 

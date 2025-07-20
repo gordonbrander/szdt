@@ -60,7 +60,7 @@ impl std::fmt::Display for DidKey {
         let multibase_encoded = base58btc::encode(multicodec_bytes);
 
         // Construct the did:key
-        write!(f, "{}{}", DID_KEY_BASE58BTC_PREFIX, multibase_encoded)
+        write!(f, "{DID_KEY_BASE58BTC_PREFIX}{multibase_encoded}")
     }
 }
 

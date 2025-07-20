@@ -78,16 +78,14 @@ mod tests {
             let recovered_entropy = parsed_mnemonic.to_entropy();
             assert_eq!(
                 entropy, recovered_entropy,
-                "Entropy round-trip failed for size {}",
-                size
+                "Entropy round-trip failed for size {size}"
             );
 
             // Check that string representation round-trips correctly
             assert_eq!(
                 mnemonic_str,
                 parsed_mnemonic.to_string(),
-                "String round-trip failed for size {}",
-                size
+                "String round-trip failed for size {size}"
             );
         }
     }

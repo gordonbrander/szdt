@@ -8,7 +8,7 @@ pub fn truncate(s: &str, max_chars: usize, ellipsis: &str) -> String {
         s.to_string()
     } else if max_chars > ellipsis_len {
         let truncated_string: String = s.chars().take(max_chars - ellipsis_len).collect();
-        format!("{}{}", truncated_string, ellipsis)
+        format!("{truncated_string}{ellipsis}")
     } else {
         let truncated_string: String = s.chars().take(max_chars).collect();
         truncated_string
