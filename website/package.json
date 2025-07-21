@@ -15,6 +15,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "build:demo": "esbuild --bundle --minify --format=esm --target=esnext --outfile=../docs/assets/demo.js assets/demo.ts",
     "build:prod": "NODE_ENV=production npx @11ty/eleventy --config=eleventy.config.ts",
     "build:dev": "npx @11ty/eleventy --config=eleventy.config.ts",
     "serve": "npx @11ty/eleventy --serve --config=eleventy.config.ts",
@@ -24,6 +25,7 @@
     "@11ty/eleventy": "^3.1.2"
   },
   "devDependencies": {
-    "@types/node": "^24.0.4"
+    "@types/node": "^24.0.4",
+    "esbuild": "^0.25.8"
   }
 }
