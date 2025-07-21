@@ -194,9 +194,3 @@ pub fn serialize_cbor(js_value: &JsValue) -> Result<Vec<u8>, JsError> {
         serde_ipld_dagcbor::to_vec(&value).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(cbor_bytes)
 }
-
-/// Validate that data is valid CBOR
-#[wasm_bindgen]
-pub fn is_valid_cbor(data: &[u8]) -> bool {
-    serde_ipld_dagcbor::from_slice::<Value>(data).is_ok()
-}
