@@ -15,6 +15,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "watch:demo": "esbuild --watch --bundle --minify --format=esm --target=esnext --outfile=../docs/assets/demo.js assets/demo.ts",
     "build:demo": "esbuild --bundle --minify --format=esm --target=esnext --outfile=../docs/assets/demo.js assets/demo.ts",
     "build:prod": "NODE_ENV=production npx @11ty/eleventy --config=eleventy.config.ts",
     "build:dev": "npx @11ty/eleventy --config=eleventy.config.ts",
