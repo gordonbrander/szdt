@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["node"],
     "lib": ["ESNext", "dom"],
     "target": "ESNext"
   }

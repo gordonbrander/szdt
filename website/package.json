@@ -15,8 +15,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "watch:demo": "esbuild --watch --bundle --minify --format=esm --target=esnext --outfile=../docs/assets/demo.js assets/demo.ts",
-    "build:demo": "esbuild --bundle --minify --format=esm --target=esnext --outfile=../docs/assets/demo.js assets/demo.ts",
+    "vendor": "node scripts/cp-szdt-wasm.ts",
+    "watch:ts": "esbuild --watch --bundle --minify --format=esm --target=esnext '--external:./static/vendor/*' --outdir=../docs/static src/demo.ts",
+    "build:ts": "esbuild --bundle --minify --format=esm --target=esnext '--external:./vendor/*' --outfile=../docs/static/demo.js src/demo.ts",
     "build:prod": "NODE_ENV=production npx @11ty/eleventy --config=eleventy.config.ts",
     "build:dev": "npx @11ty/eleventy --config=eleventy.config.ts",
     "serve": "npx @11ty/eleventy --serve --config=eleventy.config.ts",

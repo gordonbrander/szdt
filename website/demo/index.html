@@ -4,8 +4,11 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>SZDT Archive Explorer</title>
-        <link rel="stylesheet" href="{{ "assets/demo.css" | prepend: site.url }}"/>
-        <script type="module" src="{{ "assets/demo.js" | prepend: site.url }}"/>
+        <link rel="stylesheet" href="{{ "static/demo.css" | prepend: site.url }}"/>
+        <script type="module">
+          window.SITE_URL = "{{site.url}}";
+        </script>
+        <script type="module" src="{{ "static/demo.js" | prepend: site.url }}"></script>
     </head>
     <body>
         <button

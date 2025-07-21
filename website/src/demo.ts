@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { $, on } from "./dom.ts";
+import initSzdtWasm from "../vendor/szdt_wasm/szdt_wasm.js";
 
 /** 500 MB */
 export const MAX_FILE_SIZE = 500 * 1024 * 1024;
@@ -29,10 +30,15 @@ export const initializeFileInput = (
   });
 };
 
-export const main = () => {
+export const main = async () => {
   console.log("Main initializing");
+
+  await initSzdtWasm();
+
   const fileInput = $("#file-input") as HTMLInputElement;
   initializeFileInput(fileInput);
+
+  $("body")?.classList.add("ready");
 };
 
 main();
