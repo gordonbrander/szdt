@@ -3,156 +3,22 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SZDT Archive Demo</title>
+        <title>SZDT Archive Explorer</title>
         <link rel="stylesheet" href="{{ "assets/demo.css" | prepend: site.url }}"/>
         <script type="module" src="{{ "assets/demo.js" | prepend: site.url }}"/>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>SZDT Archive Demo</h1>
-                <p>Upload and explore signed SZDT archive files</p>
-            </div>
-
-            <div class="content">
-                <div class="upload-section">
-                    <div class="drop-zone" id="dropZone">
-                        <div class="drop-zone-content">
-                            <div class="drop-zone-icon">📁</div>
-                            <div>
-                                <h3>Drag and drop your .szdt file here</h3>
-                                <p>or</p>
-                                <button
-                                    class="choose-file-btn"
-                                    onclick="document.getElementById('fileInput').click()"
-                                >
-                                    Choose File
-                                </button>
-                            </div>
-                            <p>Maximum file size: 100MB</p>
-                        </div>
-                    </div>
-                    <input
-                        type="file"
-                        id="fileInput"
-                        class="file-input"
-                        accept=".szdt"
-                    />
-                </div>
-
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>Processing archive...</p>
-                </div>
-
-                <div id="errorContainer"></div>
-
-                <div class="results" id="results">
-                    <div id="archiveInfo"></div>
-                    <div id="fileList"></div>
-                </div>
-            </div>
-        </div>
-
-        <script type="module">
-            import {
-                loadWasm,
-                handleFileUpload,
-                renderArchiveInfo,
-                renderFileList,
-                calculateArchiveInfo,
-                initializeDragAndDrop,
-            } from "./feature.js";
-
-            // DOM elements
-            const dropZone = document.getElementById("dropZone");
-            const fileInput = document.getElementById("fileInput");
-            const loading = document.getElementById("loading");
-            const errorContainer = document.getElementById("errorContainer");
-            const results = document.getElementById("results");
-            const archiveInfo = document.getElementById("archiveInfo");
-            const fileList = document.getElementById("fileList");
-
-            // Initialize application
-            async function initApp() {
-                try {
-                    // Load WASM module
-                    await loadWasm();
-                    console.log("Application initialized successfully");
-
-                    // Initialize drag and drop
-                    initializeDragAndDrop(dropZone, fileInput, handleFiles);
-                } catch (error) {
-                    showError(
-                        `Failed to initialize application: ${error.message}`,
-                    );
-                    console.error("Initialization error:", error);
-                }
-            }
-
-            // Handle file selection
-            async function handleFiles(files) {
-                if (files.length === 0) return;
-
-                const file = files[0];
-
-                // Reset UI
-                hideError();
-                hideResults();
-                showLoading();
-
-                try {
-                    // Process the file
-                    const entries = await handleFileUpload(file);
-
-                    // Calculate statistics
-                    const info = calculateArchiveInfo(entries);
-
-                    // Render results
-                    renderArchiveInfo(info, archiveInfo);
-                    renderFileList(entries, fileList);
-
-                    // Show results
-                    hideLoading();
-                    showResults();
-
-                    console.log(
-                        `Successfully processed ${entries.length} files from ${file.name}`,
-                    );
-                } catch (error) {
-                    hideLoading();
-                    showError(error.message);
-                    console.error("File processing error:", error);
-                }
-            }
-
-            // UI helper functions
-            function showLoading() {
-                loading.classList.add("visible");
-            }
-
-            function hideLoading() {
-                loading.classList.remove("visible");
-            }
-
-            function showError(message) {
-                errorContainer.innerHTML = `<div class="error">${message}</div>`;
-            }
-
-            function hideError() {
-                errorContainer.innerHTML = "";
-            }
-
-            function showResults() {
-                results.classList.add("visible");
-            }
-
-            function hideResults() {
-                results.classList.remove("visible");
-            }
-
-            // Start the application
-            initApp();
-        </script>
+        <button
+            class="choose-file-btn"
+            onclick="document.getElementById('file-input').click()"
+        >
+            Choose File
+        </button>
+        <input
+            type="file"
+            id="file-input"
+            class="file-input"
+            accept=".szdt"
+        />
     </body>
 </html>
