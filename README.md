@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data archives.
+Signed CBOR for censorship-resistant data.
 
 ## Intro
 
@@ -13,22 +13,6 @@ Signed CBOR for censorship-resistant data archives.
 - **Verified random access**: Optional manifests provide efficient seeking to specific content via HTTP range requests or file seeks.
 
 SZDT makes use of the Blake3 hashing algorithm to enable efficient streaming and random access while cryptographically verifying data integrity.
-
-## Motivation
-
-Web resources are accessed by URLs (Uniform Resource Locators), meaning they belong to a single canonical location, or "origin". Security on the web is also [dependent upon origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), making [mirroring](https://en.wikipedia.org/wiki/Mirror_site) difficult.
-
-All of this means web content is effectively centralized. Centralization makes web data vulnerable to lock-in, censorship, and more banal forms of failure, like [link rot](https://en.wikipedia.org/wiki/Link_rot). A website is a [Single Point of Failure](https://en.wikipedia.org/wiki/Single_point_of_failure) (SPOF), and single points of failure fail eventually. The only question is when.
-
-These limitations may not be a problem for some kinds of content (private messaging, corporate apps), but they become pressing in the case of archival information and publishing. For example, scientific datasets, journalism, reference information, libraries, academic journals, etc are often intendend to be broadly accessible public goods, available in perpetuity. However, the websites hosting them can and do disappear, as in the 2025 case of [CDC datasets being taken down by the US government](https://www.theatlantic.com/health/archive/2025/01/cdc-dei-scientific-data/681531/). They may also be subject to censorship in many contexts.
-
-This is a silly situation to be in. [The internet was designed to be decentralized](https://newsletter.squishy.computer/p/decentralization-enables-permissionless)—decentralized enough to survive a nuclear war. Yet the web and internet have centralized through an [unfortunate combo of technical choices and commercial pressures](https://newsletter.squishy.computer/i/65395829/redecentralizing-the-web). We can't fix all of that, but we can make it easier to distribute content to multiple redundant locations. Let's de-SPOF data.
-
-To maintain a resilient information ecosystem, we need a simple way to publish and archive information that:
-
-- Is decentralized, redundant, and censorship-resistant
-- Keeps long-tail content alive over long periods of time
-- Is easy to adopt **right now**, with infrastructure that is already widely deployed.
 
 ## Goals
 
@@ -51,12 +35,25 @@ See [spec.md](./spec.md).
 
 ## Development
 
-### Installing binaries on your path with Cargo
+### Setup
+
+Requirements:
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Node.js](https://nodejs.org/en/download/)
+
+Once you have Rust and Node, you can get the additional dependencies by running:
+
+```bash
+./scripts/setup.sh
+```
+
+### Installing CLI on your path with Cargo
 
 From the project directory:
 
 ```bash
-cargo install --path .
+cargo install --path rust/
 ```
 
 This will install the binaries to `~/.cargo/bin`, which is usually added to your path by the Rust installer.
