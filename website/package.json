@@ -24,7 +24,6 @@
     "@11ty/eleventy": "^3.1.2"
   },
   "devDependencies": {
-    "@types/node": "^24.0.4",
-    "esbuild": "^0.25.8"
+    "@types/node": "^24.0.4"
   }
 }
