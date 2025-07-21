@@ -1,11 +1,10 @@
-/// <reference lib="dom" />
-import { $, on } from "./dom.ts";
-import initSzdtWasm from "../vendor/szdt_wasm/szdt_wasm.js";
+import { $, on } from "./shared.js";
+import initSzdtWasm from "../vendor/szdt_wasm.js";
 
 /** 500 MB */
-export const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
-export const uploadFile = async (file: File): Promise<Uint8Array> => {
+const uploadFile = async (file) => {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE}`);
   }
@@ -16,12 +15,12 @@ export const uploadFile = async (file: File): Promise<Uint8Array> => {
   return data;
 };
 
-export const initializeFileInput = (
-  fileInput: HTMLInputElement,
-): void => {
+const initializeFileInput = (
+  fileInput,
+) => {
   on(fileInput, "change", async (e) => {
-    const event = e as Event;
-    const target = event.target as HTMLInputElement;
+    const event = e;
+    const target = event.target;
     const files = target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -30,12 +29,12 @@ export const initializeFileInput = (
   });
 };
 
-export const main = async () => {
+const main = async () => {
   console.log("Main initializing");
 
   await initSzdtWasm();
 
-  const fileInput = $("#file-input") as HTMLInputElement;
+  const fileInput = $("#file-input");
   initializeFileInput(fileInput);
 
   $("body")?.classList.add("ready");

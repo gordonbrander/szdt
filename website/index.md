@@ -3,7 +3,7 @@ layout: index.liquid
 title: SZDT - Signed Zero-trust DaTa
 ---
 
-<img src="{{ "assets/logo2.png" | prepend: site.url }}" height="80" />
+<img src="{{ "static/logo2.png" | prepend: site.url }}" height="80" />
 
 # SZDT
 
