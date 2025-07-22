@@ -5,7 +5,7 @@ authors = ["Gordon Brander"]
 edition = "2024"
 description = "SZDT core functionality for encoding, decoding, signing, and hashing"
 license = "MIT"
-keywords = ["szdt", "decentralization", "censorship-resistance", "CBOR"]
+keywords = ["szdt", "decentralization", "CBOR"]
 repository = "https://github.com/gordonbrander/szdt"
 
 [dependencies]
