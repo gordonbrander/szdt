@@ -1,4 +1,4 @@
-# SZDT: signed cbor for censorship-resistant data
+# SZDT: signed CBOR for censorship-resistant data
 
 ## Summary
 

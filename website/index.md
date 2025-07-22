@@ -29,17 +29,19 @@ Signed CBOR for censorship-resistant data.
 
 SZDT is a set of building blocks for publishing censorship-resistant data.
 
+- [SZDT Whitepaper](https://github.com/gordonbrander/szdt/blob/main/WHITEPAPER.md)
 - [SZDT Explainer]({{site.url}}specs/explainer/): Overview of SZDT concepts. Start here.
 - [SZDT Memos Specification]({{site.url}}specs/memos/): CBOR metadata envelopes that can be cryptographically signed to create self-certifying data.
 - [SZDT Sequence Specification]({{site.url}}specs/sequences/): Bundle multiple CBOR objects into a single content-addressed CBOR Sequence.
 - [SZDT Archives Specification]({{site.url}}specs/archives/): a file archiving format built on memos and sequences. Archives provide a censorship-resistant format for distributing collections of signed, verifiable files.
 
-## Goals
+## Features
+
+## Features
 
 - **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
-- **Decentralized**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). SZDT archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc.
-- **Censorship-resistant**: Distributable via HTTP, Torrents, email, airdrop, sneakernet, or anything else.
-- **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required. This allows for anonymous and pseudonymous publishing. If an author wishes to be publicly known, they can use other protocols to link a key to their identity.
-- **Boring**: SZDT uses ubiquitous technology. It is designed to be compatible with widely deployed infrastructure, like HTTP. The format is simple, and easy to implement in any language.
-
-If there are many copies, and many ways to find them, then data can survive the way dandelions do—by spreading seeds.
+- **Censorship-resistant**: Because trust is decoupled from origin or transport, SZDT archives can be distributed via HTTP, Torrents, email, airdrop, sneakernet, or anything else that is available.
+- **Decentralizable**: SZDT decouples trust from origin, so data can be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/).
+- **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required.
+- **Streamable**: CBOR is inherently streamable, and Blake3 hashes enable streaming cryptographic verification.
+- **Any kind of data**: Memos can wrap API responses, file bytes, structured data, or anything else. They also provide a mechanism for adding self-certifying metadata (headers) to any data.
