@@ -13,7 +13,7 @@ Signed CBOR for censorship-resistant data.
 
 <div class="hstack gap">
     <a class="btn primary" href="{{ "guides/quickstart/" | prepend: site.url }}">Quickstart</a>
-    <a class="btn" href="{{ "guides/quick-start/" | prepend: site.url }}">Whitepaper</a>
+    <a class="btn" href="https://github.com/gordonbrander/szdt/blob/main/WHITEPAPER.md">Whitepaper</a>
     <a class="btn" href="https://github.com/gordonbrander/szdt">GitHub</a>
 </div>
 
