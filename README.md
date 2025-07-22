@@ -2,61 +2,55 @@
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data archives.
+Signed CBOR for censorship-resistant data.
 
 ## Intro
 
-**TLDR**: a cryptographically-signed [CBOR sequence](https://www.rfc-editor.org/rfc/rfc8742.html) containing metadata, bytes, and everything needed to verify them.
+**TLDR**: cryptographically-signed CBOR envelopes containing data, metadata, and everything needed to trustlessly verify it.
 
-- **Zero trust**: Archives are cryptographically signed and content-addressed using Blake3 hashes, requiring no trusted authorities for verification.
-- **Verified streaming**: Blake3 and Bao enable streaming verification of archive integrity without buffering entire files.
-- **Verified random access**: Optional manifests provide efficient seeking to specific content via HTTP range requests or file seeks.
+- [Whitepaper](./WHITEPAPER.md)
+- [Specs and docs](https://gordonbrander.github.io/szdt/)
 
-SZDT makes use of the Blake3 hashing algorithm to enable efficient streaming and random access while cryptographically verifying data integrity.
-
-## Motivation
-
-Web resources are accessed by URLs (Uniform Resource Locators), meaning they belong to a single canonical location, or "origin". Security on the web is also [dependent upon origin](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), making [mirroring](https://en.wikipedia.org/wiki/Mirror_site) difficult.
-
-All of this means web content is effectively centralized. Centralization makes web data vulnerable to lock-in, censorship, and more banal forms of failure, like [link rot](https://en.wikipedia.org/wiki/Link_rot). A website is a [Single Point of Failure](https://en.wikipedia.org/wiki/Single_point_of_failure) (SPOF), and single points of failure fail eventually. The only question is when.
-
-These limitations may not be a problem for some kinds of content (private messaging, corporate apps), but they become pressing in the case of archival information and publishing. For example, scientific datasets, journalism, reference information, libraries, academic journals, etc are often intendend to be broadly accessible public goods, available in perpetuity. However, the websites hosting them can and do disappear, as in the 2025 case of [CDC datasets being taken down by the US government](https://www.theatlantic.com/health/archive/2025/01/cdc-dei-scientific-data/681531/). They may also be subject to censorship in many contexts.
-
-This is a silly situation to be in. [The internet was designed to be decentralized](https://newsletter.squishy.computer/p/decentralization-enables-permissionless)—decentralized enough to survive a nuclear war. Yet the web and internet have centralized through an [unfortunate combo of technical choices and commercial pressures](https://newsletter.squishy.computer/i/65395829/redecentralizing-the-web). We can't fix all of that, but we can make it easier to distribute content to multiple redundant locations. Let's de-SPOF data.
-
-To maintain a resilient information ecosystem, we need a simple way to publish and archive information that:
-
-- Is decentralized, redundant, and censorship-resistant
-- Keeps long-tail content alive over long periods of time
-- Is easy to adopt **right now**, with infrastructure that is already widely deployed.
-
-## Goals
+## Features
 
 - **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
-- **Decentralized**: [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/). SZDT archives are made to be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc.
-- **Censorship-resistant**: Distributable via HTTP, Torrents, email, airdrop, sneakernet, or anything else.
+- **Censorship-resistant**: Because trust is decoupled from origin or transport, SZDT archives can be distributed via HTTP, Torrents, email, airdrop, sneakernet, or anything else that is available.
+- **Decentralizable**: SZDT decouples trust from origin, so data can be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/).
 - **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required.
-- **Resilient**: built on CBOR sequences, an [IETF standard](https://cbor.io/spec.html) that is widely supported and should be readable 10, 20, 100 years into the future.
 - **Streamable**: CBOR is inherently streamable, and Blake3 hashes enable streaming cryptographic verification.
+- **Any kind of data**: Memos can wrap API responses, file bytes, structured data, or anything else. They also provide a mechanism for adding self-certifying metadata (headers) to any data.
 
-### Non-goals
+### Non-features
 
 - **P2P**: SZDT is transport-agnostic. It's just a file format.
-- **Efficiency**: SZDT prioritizes simplicity and resilience over efficiency.
-- **Comprehensive preservation**: SZDT aims to make it easy to spread data like dandelion seeds.
-
-## Specification
-
-See [spec.md](./spec.md).
+- **Efficiency**: SZDT prioritizes simplicity over efficiency.
 
 ## Development
 
-### Installing binaries on your path with Cargo
+### Prerequisites
+
+- [Node](https://nodejs.org/en/download) v24 or later
+- [Rust](https://www.rust-lang.org/) v1.88 or later
+
+### Setting up dev environment
+
+- Clone the repository
+- Run `./scripts/setup.sh` to install development dependencies (`wasm-pack` and `just`)
+
+Run `just default` to see a list of build commands.
+
+### Building WASM
+
+```bash
+just build_szdt_web
+```
+
+### Installing CLI from your path
 
 From the project directory:
 
 ```bash
-cargo install --path .
+cargo install --path ./rust/szdt-cli
 ```
 
-This will install the binaries to `~/.cargo/bin`, which is usually added to your path by the Rust installer.
+This will install the `szdt` binary to `~/.cargo/bin` (which should have been added to your path by the Rust installer).

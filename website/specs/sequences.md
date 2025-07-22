@@ -155,6 +155,14 @@ SZDT sequences should use the MIME type:
 application/vnd.szdt.seq+cbor-seq
 ```
 
+### File Extension
+
+When used in file contexts, SZDT sequences SHOULD use the file extension:
+
+```
+.szdt
+```
+
 ### References
 
 - [CBOR Sequences (RFC 8742)](https://www.rfc-editor.org/rfc/rfc8742.html)

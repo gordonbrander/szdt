@@ -31,31 +31,15 @@ archive = memo1 | bytes1 | memo2 | bytes2 | ...
 ```
 
 Where:
-- **memo**: A signed [memo](./memos/) pointing to the manifest
+- **memo**: A signed [memo]({{ "specs/memos/" | prepend: site.url }}) pointing to the manifest
 - **manifest**: A CBOR-encoded manifest listing all resources in the archive
 - **bytes**: CBOR byte strings, representing the raw bytes of each resource, in the order listed in the manifest
 
 ## Archive memos
 
-Archive entries are described by a standard [SZDT memo](./memos/) that wraps the archive manifest. In addition to the required memo headers, this memo should contain a `path` header indicating a desired file path when unpacking the archive.
+Archive entries are described by a standard [SZDT memo]({{ "specs/memos/" | prepend: site.url }}) that wraps the archive manifest. In addition to the required memo headers, archives add the following protected headers:
 
-### Example Manifest Memo
-
-```cbor
-{
-  "protected": {
-    "iss": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
-    "iss-nickname": "alice",
-    "iat": 1640995200,
-    "path": "dataset.csv",
-    "src": h'b7e2c3d4f8a9b8c7d6e5f4g3h2i1j0k9l8m7n6o5p4q3r2s1t0u9v8w7x6y5z4a3b2',
-    "content-type": "application/vnd.szdt.manifest+cbor",
-  },
-  "unprotected": {
-    "sig": h'a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890'
-  }
-}
-```
+- `path`: a hint indicating an appropriate file path when unpacking the archive. The client may choose to interpret this hint in whatever way is appropriate to the context.
 
 ### Path Requirements
 
@@ -68,29 +52,11 @@ As in web contexts, paths are keys, and do not entail the presence of intermedia
 
 ## Resource ordering
 
-SZDT archive sequences are encoded in depth-first, first seen order to enable efficient streaming. Since archive memos always point to bytes, this means that for practical purposes, an archive is made up of pairs of a memo block followed by a byte block.
+SZDT archive should be encoded in depth-first, first seen order to enable efficient streaming. Since archive memos always point to bytes, this means that an archive is made up of pairs of a memo block followed by a byte block.
 
-The SZDT unarchiving script currently takes advantage of this structure to enable efficient streaming deserialization.
-
-Future versions may add logic to allow for streaming deserialization of arbitrary sequences.
+The SZDT unarchiving CLI currently takes advantage of this structure to enable efficient streaming deserialization. Future versions may add logic to allow for streaming deserialization of arbitrary sequences.
 
 ## Appendix
-
-### MIME Type
-
-SZDT archives SHOULD use the MIME type:
-
-```
-application/vnd.szdt.archive+cbor-seq
-```
-
-### File Extension
-
-SZDT archives SHOULD use the file extension:
-
-```
-.szdt
-```
 
 ### Reference Implementation
 
