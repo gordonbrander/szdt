@@ -7,7 +7,7 @@ title: SZDT Explainer
 
 **TLDR**: signed CBOR for censorship-resistant data.
 
-SZDT is a simple format for decentralizing data. SZDT data is self-certifying, and can be cryptographically verified without relying on any centralized authority. It is built on broadly available technology (CBOR, Ed25519, Blake3), and works with any transport, including HTTP.
+SZDT is a simple format for decentralizing data. SZDT data is self-certifying, so it can be distributed across any protocol, and cryptographically verified without relying on any centralized authority. It is built on broadly available technology (CBOR, Ed25519, Blake3).
 
 ## Problem: websites are single points of failure
 
@@ -55,6 +55,8 @@ SZDT data is signed with a user-controlled key, and published with all of the cr
 
 SZDT is built around **memos**, CBOR metadata envelopes signed with an Ed25519 cryptographic key.
 
+Memos are conceptually made up of two parts, **headers** and a **body** (the data). This memo format will be familiar if you've worked with HTTP or other internet protocols.
+
 ```cbor
 {
   "protected": {
@@ -69,9 +71,13 @@ SZDT is built around **memos**, CBOR metadata envelopes signed with an Ed25519 c
 }
 ```
 
-Inside the memo, we include the **cryptographic signature** , a DID for the public key used to sign the message, plus **content addresses** and anythign else needed to verify the authenticity and integrity of the data.
+The memo contains:
 
-Let's break this down...
+- a **cryptographic signature**, signing over the **protected** data
+- a **DID** resolving to the public key used to sign the message
+- a **src** containing the Blake3 hash of the "body part" of the memo
+
+This gives us everything we need to verify the authenticity and integrity of the data.
 
 ### Protected Headers
 
