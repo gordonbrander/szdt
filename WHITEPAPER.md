@@ -126,11 +126,11 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 
 ### Over plain HTTP
 
-- Trust is decoupled from origin, so data becomes decentralizable.
+- Trust is decoupled from origin so data becomes decentralizable.
 
 ### Over existing decentralized solutions
 
-- Combines signing AND content addressing to verify BOTH data's authenticity AND integrity.
+- Single opinionated answer for signing AND content addressing to verify BOTH data's authenticity AND integrity.
 - Uses Blake3 throughout, making streaming verification possible at every level.
 - Decouples trust from transport, allowing use with any protocol, p2p, HTTP, email, sneakernet, whatever.
 - It's "just" CBOR, DIDs, Blake3, and Ed25519. Easy to implement, easy to integrate into existing stacks.
@@ -141,6 +141,14 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 - CLI for generating signed file archives
 - The beginnings of a [nickname (petname) system](https://newsletter.squishy.computer/p/nickname-petname-system)
 - **COMING SOON**: Web and Node bindings via WASM
+
+## Future
+
+SZDT is designed to be permissionlessly extensible. We also plan to explore future expansions to the core format:
+
+- More DID methods (e.g. `did:eth`, `did:webvh`...)
+- OCAP inspired by [UCAN](https://github.com/ucan-wg/spec)
+- e2ee
 
 ## Conclusion
 
