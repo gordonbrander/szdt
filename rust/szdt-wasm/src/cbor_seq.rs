@@ -70,7 +70,7 @@ impl CborSeqReader {
 
         // Serialize the value back to CBOR
         let cbor_bytes =
-            serde_ipld_dagcbor::to_vec(&value).map_err(|e| JsError::new(&e.to_string()))?;
+            serde_cbor_core::to_vec(&value).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(cbor_bytes)
     }
 
@@ -128,7 +128,7 @@ impl CborSeqWriter {
     pub fn write_raw(&mut self, cbor_data: &[u8]) -> Result<(), JsError> {
         // Parse the CBOR data to validate it
         let _value: Value =
-            serde_ipld_dagcbor::from_slice(cbor_data).map_err(|e| JsError::new(&e.to_string()))?;
+            serde_cbor_core::from_slice(cbor_data).map_err(|e| JsError::new(&e.to_string()))?;
 
         // Write directly to our buffer
         self.data.extend_from_slice(cbor_data);
@@ -179,7 +179,7 @@ impl CborSeqWriter {
 #[wasm_bindgen]
 pub fn parse_cbor(data: &[u8]) -> Result<JsValue, JsError> {
     let value: Value =
-        serde_ipld_dagcbor::from_slice(data).map_err(|e| JsError::new(&e.to_string()))?;
+        serde_cbor_core::from_slice(data).map_err(|e| JsError::new(&e.to_string()))?;
     let js_value =
         serde_wasm_bindgen::to_value(&value).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(js_value)
@@ -190,13 +190,12 @@ pub fn parse_cbor(data: &[u8]) -> Result<JsValue, JsError> {
 pub fn serialize_cbor(js_value: &JsValue) -> Result<Vec<u8>, JsError> {
     let value: Value = serde_wasm_bindgen::from_value(js_value.clone())
         .map_err(|e| JsError::new(&e.to_string()))?;
-    let cbor_bytes =
-        serde_ipld_dagcbor::to_vec(&value).map_err(|e| JsError::new(&e.to_string()))?;
+    let cbor_bytes = serde_cbor_core::to_vec(&value).map_err(|e| JsError::new(&e.to_string()))?;
     Ok(cbor_bytes)
 }
 
 /// Validate that data is valid CBOR
 #[wasm_bindgen]
 pub fn is_valid_cbor(data: &[u8]) -> bool {
-    serde_ipld_dagcbor::from_slice::<Value>(data).is_ok()
+    serde_cbor_core::from_slice::<Value>(data).is_ok()
 }

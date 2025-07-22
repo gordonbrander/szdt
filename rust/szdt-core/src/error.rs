@@ -63,26 +63,26 @@ pub enum Error {
     Eof,
 }
 
-impl From<serde_ipld_dagcbor::DecodeError<std::io::Error>> for Error {
-    fn from(err: serde_ipld_dagcbor::DecodeError<std::io::Error>) -> Self {
+impl From<serde_cbor_core::DecodeError<std::io::Error>> for Error {
+    fn from(err: serde_cbor_core::DecodeError<std::io::Error>) -> Self {
         Error::CborDecode(err.to_string())
     }
 }
 
-impl From<serde_ipld_dagcbor::DecodeError<Infallible>> for Error {
-    fn from(err: serde_ipld_dagcbor::DecodeError<Infallible>) -> Self {
+impl From<serde_cbor_core::DecodeError<Infallible>> for Error {
+    fn from(err: serde_cbor_core::DecodeError<Infallible>) -> Self {
         Error::CborDecode(err.to_string())
     }
 }
 
-impl From<serde_ipld_dagcbor::EncodeError<TryReserveError>> for Error {
-    fn from(err: serde_ipld_dagcbor::EncodeError<TryReserveError>) -> Self {
+impl From<serde_cbor_core::EncodeError<TryReserveError>> for Error {
+    fn from(err: serde_cbor_core::EncodeError<TryReserveError>) -> Self {
         Error::CborEncode(err.to_string())
     }
 }
 
-impl From<serde_ipld_dagcbor::EncodeError<std::io::Error>> for Error {
-    fn from(err: serde_ipld_dagcbor::EncodeError<std::io::Error>) -> Self {
+impl From<serde_cbor_core::EncodeError<std::io::Error>> for Error {
+    fn from(err: serde_cbor_core::EncodeError<std::io::Error>) -> Self {
         Error::CborEncode(err.to_string())
     }
 }

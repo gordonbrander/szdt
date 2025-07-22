@@ -17,7 +17,6 @@ dirs = { workspace = true }
 mime_guess2 = { workspace = true }
 rusqlite = { workspace = true }
 serde = { workspace = true }
-serde_ipld_dagcbor = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 

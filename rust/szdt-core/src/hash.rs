@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_hash_serializes_as_cbor_byte_string() {
         let hash = Hash::new(b"test data");
-        let serialized = serde_ipld_dagcbor::to_vec(&hash).expect("Failed to serialize hash");
+        let serialized = serde_cbor_core::to_vec(&hash).expect("Failed to serialize hash");
 
         // CBOR byte strings with length 32 should start with 0x58 0x20
         // 0x58 = major type 2 (byte string) with additional info 24 (1-byte length follows)
@@ -164,11 +164,11 @@ mod tests {
         let original_hash = Hash::new(b"roundtrip test data");
 
         // Serialize
-        let serialized = serde_ipld_dagcbor::to_vec(&original_hash).expect("Failed to serialize");
+        let serialized = serde_cbor_core::to_vec(&original_hash).expect("Failed to serialize");
 
         // Deserialize
         let deserialized_hash: Hash =
-            serde_ipld_dagcbor::from_slice(&serialized).expect("Failed to deserialize");
+            serde_cbor_core::from_slice(&serialized).expect("Failed to deserialize");
 
         assert_eq!(
             original_hash, deserialized_hash,

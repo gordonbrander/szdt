@@ -13,7 +13,7 @@ data-encoding = { workspace = true }
 ed25519-dalek = { workspace = true }
 mime_guess2 = { workspace = true }
 serde = { workspace = true }
-serde_ipld_dagcbor = { workspace = true }
+serde_cbor_core = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
