@@ -1,5 +1,5 @@
 [package]
-name = "szdt-core"
+name = "szdt_core"
 version = "0.0.1"
 edition = "2024"
 description = "Core SZDT functionality for encoding, decoding, signing, and hashing"
