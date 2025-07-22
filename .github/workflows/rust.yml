@@ -27,12 +27,12 @@ jobs:
       - name: Test workspace
         working-directory: rust
         run: cargo test --workspace --verbose
-      - name: Test szdt-core
+      - name: Test szdt_core
         working-directory: rust
-        run: cargo test --package szdt-core --verbose
-      - name: Test szdt-cli
+        run: cargo test --package szdt_core --verbose
+      - name: Test szdt_cli
         working-directory: rust
-        run: cargo test --package szdt-cli --verbose
+        run: cargo test --package szdt_cli --verbose
       - name: Build CLI binary
         working-directory: rust
         run: cargo build --bin szdt --release
