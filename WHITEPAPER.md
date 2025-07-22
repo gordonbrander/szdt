@@ -126,14 +126,14 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 
 ### Over plain HTTP
 
-- Trust is decoupled from origin, so data becomes **decentralizable**.
+- Trust is decoupled from origin, so data becomes decentralizable.
 
 ### Over existing decentralized solutions
 
-- Combines **signing** AND **content addressing** to verify BOTH data's **authenticity** AND **integrity**.
-- Uses Blake3 throughout, making **streaming verification** possible at every level.
-- Decouples **trust** from transport, allowing use of any transport protocol, p2p, HTTP, sneakernet, email, whatever.
-- **It's "just" CBOR, DIDs, Blake3, and Ed25519**. Easy to implement, easy to integrate into existing stacks.
+- Combines signing AND content addressing to verify BOTH data's authenticity AND integrity.
+- Uses Blake3 throughout, making streaming verification possible at every level.
+- Decouples trust from transport, allowing use with any protocol, p2p, HTTP, email, sneakernet, whatever.
+- It's "just" CBOR, DIDs, Blake3, and Ed25519. Easy to implement, easy to integrate into existing stacks.
 
 ## Implementation Highlights
 
