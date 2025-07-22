@@ -2,7 +2,7 @@
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data archives.
+Signed CBOR for censorship-resistant data.
 
 ## Intro
 
