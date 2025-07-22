@@ -28,7 +28,7 @@
     }
 
     @media (max-width: 1200px) {
-        --main-padding-x: calc(var(--u) * 6);
+        --main-padding-x: calc(var(--u) * 4);
     }
 }
 
@@ -427,6 +427,10 @@
     display: flex;
     flex-direction: row;
     gap: calc(var(--u) * 4);
+
+    @media (max-width: 800px) {
+        flex-direction: column;
+    }
 }
 
 .menu {
@@ -481,13 +485,16 @@
     align-items: center;
     width: min-content;
     white-space: nowrap;
-    transition: box-shadow 250ms ease-out;
+    transition:
+        box-shadow 250ms ease-out,
+        background-color 250ms ease-out;
     text-decoration: none;
 
     &:hover {
+        background-color: oklch(0.25 0.05 var(--hue));
         box-shadow:
-            rgba(0, 0, 0, 0.1) 0px 0px 5px,
-            rgba(0, 0, 0, 0.1) 0px 4px 16px;
+            oklch(0.35 0.12 var(--hue)) 0px 0px 5px,
+            oklch(0.35 0.12 var(--hue)) 0px 4px 16px;
     }
 
     &:active {
@@ -501,10 +508,11 @@
     }
 
     &:where(.primary):hover {
+        background-color: var(--btn-color);
         box-shadow:
-            rgba(0, 0, 0, 0.8) 0px 0px 1px,
-            rgba(0, 0, 0, 0.1) 0px 0px 5px,
-            rgba(0, 0, 0, 0.1) 0px 4px 16px;
+            oklch(0.35 0.12 var(--hue)) 0px 0px 1px,
+            oklch(0.35 0.12 var(--hue)) 0px 0px 5px,
+            oklch(0.5 0.12 var(--hue)) 0px 4px 16px;
     }
 
     &:active {
