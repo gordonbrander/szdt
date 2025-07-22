@@ -1,11 +1,12 @@
 :root {
-    --bg: #d0d0d0;
-    --bg2: #c6c6c6;
-    --fg: #333;
-    --fg2: #777;
-    --accent: rgb(0, 93, 147);
-    --border-color: #b0b0b0;
-    --border-color-2: #444;
+    --hue: 284.48;
+    --bg: oklch(0.21 0.02 var(--hue));
+    --bg2: oklch(0.25 0.025 var(--hue));
+    --fg: oklch(0.6 0.02 var(--hue));
+    --fg2: oklch(0.75 0.02 var(--hue));
+    --accent: oklch(0.58 0.19 var(--hue));
+    --border-color: oklch(0.3 0.03 var(--hue));
+    --btn-color: var(--accent);
     --u: 4px;
     --pad: calc(var(--u) * 12);
     --nav-gap: calc(var(--u) * 6);
@@ -97,6 +98,7 @@
         }
 
         & > h1 {
+            color: var(--fg2);
             font-size: var(--lg-size);
             line-height: var(--lg-line);
             font-weight: normal;
@@ -465,10 +467,10 @@
 .btn {
     -webkit-appearance: none;
     appearance: none;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--btn-color);
     background-color: transparent;
     border-radius: calc(var(--u) * 2);
-    color: var(--fg);
+    color: var(--btn-color);
     font-family: inherit;
     font-size: inherit;
     height: calc(var(--u) * 12);
@@ -493,7 +495,9 @@
     }
 
     &:where(.primary) {
-        background-color: var(--border-color);
+        background-color: var(--btn-color);
+        color: var(--bg);
+        font-weight: 500;
     }
 
     &:where(.primary):hover {
@@ -512,7 +516,7 @@
     --size: 40px;
     -webkit-appearance: none;
     appearance: none;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--btn-color);
     background-color: transparent;
     border-radius: calc(var(--u) * 2);
     font-family: inherit;
