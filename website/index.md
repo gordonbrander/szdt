@@ -12,8 +12,8 @@ title: SZDT - Signed Zero-trust DaTa
 Signed CBOR for censorship-resistant data.
 
 <div class="hstack gap">
-    <a class="btn primary" href="{{ "download/" | prepend: site.url }}">Download</a>
-    <a class="btn" href="{{ "guides/quick-start/" | prepend: site.url }}">Quick start</a>
+    <a class="btn primary" href="{{ "guides/quickstart/" | prepend: site.url }}">Quickstart</a>
+    <a class="btn" href="{{ "guides/quick-start/" | prepend: site.url }}">Whitepaper</a>
     <a class="btn" href="https://github.com/gordonbrander/szdt">GitHub</a>
 </div>
 
