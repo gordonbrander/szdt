@@ -9,7 +9,7 @@ Signed CBOR for censorship-resistant data.
 **TLDR**: cryptographically-signed CBOR envelopes containing data, metadata, and everything needed to trustlessly verify it.
 
 - [Whitepaper](./WHITEPAPER.md)
-- [Specs and docs](https://gordonbrander.github.io/szdt/)
+- [Website](https://szdt.dev)
 
 ## Features
 
