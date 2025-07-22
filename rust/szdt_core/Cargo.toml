@@ -1,8 +1,12 @@
 [package]
 name = "szdt_core"
-version = "0.0.1"
+version = "0.0.2"
+authors = ["Gordon Brander"]
 edition = "2024"
-description = "Core SZDT functionality for encoding, decoding, signing, and hashing"
+description = "SZDT core functionality for encoding, decoding, signing, and hashing"
+license = "MIT"
+keywords = ["szdt", "decentralization", "censorship-resistance", "CBOR"]
+repository = "https://github.com/gordonbrander/szdt"
 
 [dependencies]
 bip39 = { workspace = true }
