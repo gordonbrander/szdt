@@ -1,5 +1,5 @@
 [package]
-name = "szdt-cli"
+name = "szdt_cli"
 version = "0.0.1"
 edition = "2024"
 description = "SZDT command-line interface and filesystem utilities"
@@ -9,7 +9,7 @@ name = "szdt"
 path = "src/bin/szdt.rs"
 
 [dependencies]
-szdt-core = { path = "../szdt-core" }
+szdt_core = { path = "../szdt_core" }
 clap = { workspace = true }
 console = { workspace = true }
 dialoguer = { workspace = true }

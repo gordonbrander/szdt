@@ -1,5 +1,5 @@
 [workspace]
-members = ["szdt-core", "szdt-cli", "szdt-wasm"]
+members = ["szdt_core", "szdt_cli", "szdt_wasm"]
 resolver = "2"
 
 [workspace.dependencies]

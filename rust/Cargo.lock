@@ -927,7 +927,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "szdt-cli"
+name = "szdt_cli"
 version = "0.0.1"
 dependencies = [
  "clap",
@@ -938,13 +938,13 @@ dependencies = [
  "rand 0.9.1",
  "rusqlite",
  "serde",
- "szdt-core",
+ "szdt_core",
  "tempfile",
  "thiserror 2.0.12",
 ]
 
 [[package]]
-name = "szdt-core"
+name = "szdt_core"
 version = "0.0.1"
 dependencies = [
  "bip39",
@@ -961,14 +961,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "szdt-wasm"
+name = "szdt_wasm"
 version = "0.0.1"
 dependencies = [
  "cbor4ii 1.0.0",
  "js-sys",
  "serde-wasm-bindgen",
  "serde_cbor_core",
- "szdt-core",
+ "szdt_core",
  "wasm-bindgen",
  "web-sys",
  "wee_alloc",
