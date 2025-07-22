@@ -4,11 +4,11 @@
 
 **TLDR**: signed CBOR for censorship-resistant data.
 
-SZDT is a simple format for decentralizing data. SZDT data is signed and self-certifying, so it can be distributed across any protocol, and cryptographically verified without relying on any centralized authority.
+SZDT is a simple format for decentralizing data. SZDT data is signed and self-certifying, so it can be distributed across any protocol and cryptographically verified without relying on any centralized authority.
 
 ## Problem: websites are single points of failure
 
-On the web, trust is centralized around the server. Web resources are accessed by URLs (Uniform Resource Locators), meaning they belong to a single location. This makes web content centralized, vulnerable to lock-in, [link rot](https://en.wikipedia.org/wiki/Link_rot), and censorship. Websites are single points of failure, and single points of failure fail eventually. The only question is when.
+On the web, trust is centralized around the server. Web resources are accessed by URLs (Uniform Resource Locators), meaning they belong to a single location. This makes web content centralized, vulnerable to lock-in, link rot, and censorship.
 
 The quick fix would be to distribute data to multiple locations, or even across multiple transports (HTTP, BitTorrent, etc...). This would make data resistant to lock-in, link rot, and censorship. Unfortunately, the web's trust model makes this impossible. Since trust is rooted in the centralized server, we can't trust data we get from other sources. There's no way to know if it has been tampered with.
 
@@ -19,7 +19,7 @@ SZDT solves this by combining two ideas:
 - **Public key cryptography**: use cryptographic signatures to trustlessly prove who created the data.
 - **Content addressing**: use cryptographic hashes to address data and trustlessly prove data integrity.
 
-Together, these ideas allow us to create **self-certifying data**, data that can be cryptographically verified without relying on any centralized authority.
+Together, these things allow us to create **self-certifying data**, data that can be cryptographically verified without relying on any centralized authority.
 
 We no longer need to trust the server. We can verify with cryptography. Because trust is decoupled from the server, data can be decentralized.
 
@@ -96,11 +96,11 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 ## Key Features
 
 - **Zero-trust**: SZDT archives are verified using cryptographic hashing and public key cryptography. No centralized authorities are required.
-- **Censorship-resistant**: Distributable via HTTP, Torrents, email, airdrop, sneakernet, or anything else.
+- **Censorship-resistant**: Because trust is decoupled from origin or transport, SZDT archives can be distributed via HTTP, Torrents, email, airdrop, sneakernet, or anything else that is available.
 - **Decentralizable**: SZDT decouples trust from origin, so data can be distributed to many redundant locations, including multiple HTTP servers, BitTorrent, hard drives, etc. [Lots Of Copies Keeps Stuff Safe](https://www.lockss.org/).
 - **Anonymous/pseudonymous**: SZDT uses [keys, not IDs](https://newsletter.squishy.computer/i/60168330/keys-not-ids-toward-personal-illegibility). No accounts are required.
 - **Streamable**: CBOR is inherently streamable, and Blake3 hashes enable streaming cryptographic verification.
-- Works with any transport
+- **Any kind of data**: Memos can wrap API responses, file bytes, structured data, or anything else. They also provide a mechanism for adding self-certifying metadata (headers) to any data.
 
 ### Non-features
 
@@ -118,8 +118,8 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 ### Censorship-resistant data archives
 
 - Scientific data archives
-- Verifiable mirror data
-- Sign files to enable
+- Verifiable HTTP mirrors
+- Signed archive files (save SZDT sequences as `.szdt` files analogous to TAR files)
 - CBOR is a simple format and an IETF standard that will be around in 10 or 100 years. Good qualities for archival data.
 
 ## Technical Advantages
@@ -130,7 +130,7 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 
 ### Over existing decentralized solutions
 
-- Combines **signing** AND **content addressing** to verify data's **authenticity** AND **integrity**.
+- Combines **signing** AND **content addressing** to verify BOTH data's **authenticity** AND **integrity**.
 - Uses Blake3 throughout, making **streaming verification** possible at every level.
 - Decouples **trust** from transport, allowing use of any transport protocol, p2p, HTTP, sneakernet, email, whatever.
 - **It's "just" CBOR, DIDs, Blake3, and Ed25519**. Easy to implement, easy to integrate into existing stacks.
@@ -143,3 +143,5 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 - **COMING SOON**: Web and Node bindings via WASM
 
 ## Conclusion
+
+SZDT achieves censorship-resistant data without any exotic protocols. By combining boring standardized technology with zero-trust cryptographic primitives, we can make data censorship-resistant and decentralizable.
