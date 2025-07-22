@@ -2,14 +2,17 @@
 name = "szdt_cli"
 version = "0.0.1"
 edition = "2024"
-description = "SZDT command-line interface and filesystem utilities"
+description = "SZDT CLI for signing and verifying data"
+authors = ["Gordon Brander"]
+license = "MIT"
+keywords = ["szdt", "decentralization", "CBOR"]
+repository = "https://github.com/gordonbrander/szdt"
 
 [[bin]]
 name = "szdt"
 path = "src/bin/szdt.rs"
 
 [dependencies]
-szdt_core = { path = "../szdt_core" }
 clap = { workspace = true }
 console = { workspace = true }
 dialoguer = { workspace = true }
@@ -19,6 +22,7 @@ rusqlite = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
+szdt_core = { version = "0.0.2", path = "../szdt_core" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
