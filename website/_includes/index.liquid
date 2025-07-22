@@ -13,6 +13,7 @@ title: SZDT
         <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&family=Fira+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="{{ "static/main.css" | prepend: site.url }}" />
         <script type="module" src="{{ "static/main.js" | prepend: site.url }}"></script>
+        {% render "meta" site_url: site.url %}
     </head>
     <body>
         <div class="page" id="page">
