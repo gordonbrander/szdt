@@ -152,4 +152,6 @@ SZDT is designed to be permissionlessly extensible. We also plan to explore futu
 
 ## Conclusion
 
-SZDT achieves censorship-resistant data without any exotic protocols. By combining boring standardized technology with zero-trust cryptographic primitives, we can make data censorship-resistant and decentralizable.
+SZDT achieves censorship-resistance without exotic protocols. By combining boring technology with zero-trust cryptographic primitives, we can make data censorship-resistant and decentralizable. If there are many copies, and many ways to find them, then data can survive the way dandelions do—by spreading seeds.
+
+All code and docs for the project are open source and released under the MIT license.
