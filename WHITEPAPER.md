@@ -62,7 +62,8 @@ Any CBOR value is a valid SZDT value, so bodies can be CBOR byte strings, or mor
 
 ### Serialization
 
-- SZDT always serializes data using the deterministic [CBOR/c ("CBOR Core")](https://datatracker-ietf-org.lucaspardue.com/doc/draft-rundgren-cbor-core/) profile with definite-length encoding.
+- SZDT always serializes data using the deterministic [CBOR/c ("CBOR Core")](https://datatracker-ietf-org.lucaspardue.com/doc/draft-rundgren-cbor-core/) profile.
+  - The requirements for this serialization profile are the same as IETF RFC 8949, section 4.2.1. ["Core Deterministic Encoding Requirements"](https://datatracker.ietf.org/doc/html/rfc8949#core-det), but add a few additional clarifications to resolve ambiguities.
 - Ensures deterministic serialization for consistent hashing and signing.
 
 ### Signing scheme
@@ -130,13 +131,15 @@ For big data, implementors may use Blake3's streaming capabilities or [Bao](http
 ### Over existing decentralized solutions
 
 - Combines **signing** AND **content addressing** to verify data's **authenticity** AND **integrity**.
-- Uses Blake3 hash throughout, making **streaming verification** possible at every level.
+- Uses Blake3 throughout, making **streaming verification** possible at every level.
 - Decouples **trust** from transport, allowing use of any transport protocol, p2p, HTTP, sneakernet, email, whatever.
+- **It's "just" CBOR, DIDs, Blake3, and Ed25519**. Easy to implement, easy to integrate into existing stacks.
 
 ## Implementation Highlights
 
-- CBOR
-
-## Future
+- Rust library with ergonomic API
+- CLI for generating signed file archives
+- The beginnings of a [nickname (petname) system](https://newsletter.squishy.computer/p/nickname-petname-system)
+- **COMING SOON**: Web and Node bindings via WASM
 
 ## Conclusion
