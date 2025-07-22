@@ -222,7 +222,7 @@ mod tests {
         let body_content = "Hello World";
         let memo = Memo::for_body(body_content).unwrap();
 
-        let cbor_bytes = serde_ipld_dagcbor::to_vec(body_content).unwrap();
+        let cbor_bytes = serde_cbor_core::to_vec(body_content).unwrap();
         assert_eq!(memo.protected.src, Hash::new(&cbor_bytes));
     }
 
@@ -329,10 +329,10 @@ mod tests {
         let memo = Memo::for_body(body_content).unwrap();
 
         // Serialize memo to CBOR
-        let cbor_bytes = serde_ipld_dagcbor::to_vec(&memo).unwrap();
+        let cbor_bytes = serde_cbor_core::to_vec(&memo).unwrap();
 
         // Deserialize back to a generic Value to check the type field
-        let value: cbor4ii::core::Value = serde_ipld_dagcbor::from_slice(&cbor_bytes).unwrap();
+        let value: cbor4ii::core::Value = serde_cbor_core::from_slice(&cbor_bytes).unwrap();
 
         if let cbor4ii::core::Value::Map(entries) = value {
             let type_key = cbor4ii::core::Value::Text("type".to_string());

@@ -88,7 +88,7 @@ impl Memo {
     #[wasm_bindgen]
     pub fn to_cbor(&self) -> Result<Vec<u8>, JsError> {
         let bytes =
-            serde_ipld_dagcbor::to_vec(&self.inner).map_err(|e| JsError::new(&e.to_string()))?;
+            serde_cbor_core::to_vec(&self.inner).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(bytes)
     }
 
@@ -96,7 +96,7 @@ impl Memo {
     #[wasm_bindgen]
     pub fn from_cbor(data: &[u8]) -> Result<Memo, JsError> {
         let inner: CoreMemo =
-            serde_ipld_dagcbor::from_slice(data).map_err(|e| JsError::new(&e.to_string()))?;
+            serde_cbor_core::from_slice(data).map_err(|e| JsError::new(&e.to_string()))?;
         Ok(Self { inner })
     }
 

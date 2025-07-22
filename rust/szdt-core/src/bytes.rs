@@ -57,12 +57,12 @@ impl Visitor<'_> for BytesVisitor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_ipld_dagcbor;
+    use serde_cbor_core;
 
     #[test]
     fn test_bytes_serialized_as_byte_string() {
         let bytes = Bytes(vec![1, 2, 3, 4, 5]);
-        let serialized = serde_ipld_dagcbor::to_vec(&bytes).unwrap();
+        let serialized = serde_cbor_core::to_vec(&bytes).unwrap();
 
         // Check that the first byte indicates a byte string (major type 2)
         // In CBOR, major type 2 is for byte strings, encoded as 0b010xxxxx
@@ -73,7 +73,7 @@ mod tests {
         );
 
         // Verify round-trip deserialization works
-        let deserialized: Bytes = serde_ipld_dagcbor::from_slice(&serialized).unwrap();
+        let deserialized: Bytes = serde_cbor_core::from_slice(&serialized).unwrap();
         assert_eq!(bytes, deserialized);
     }
 }

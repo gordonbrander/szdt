@@ -1,6 +1,10 @@
 default:
   just --list
 
+# Build and install CLI
+install_cli:
+    cargo install --path rust/szdt-cli
+
 # Build WASM bindings for web
 build_szdt_web:
     cd rust/szdt-wasm && wasm-pack build --target web --out-dir pkg/web

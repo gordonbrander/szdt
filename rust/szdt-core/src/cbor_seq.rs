@@ -15,9 +15,9 @@ impl<R: BufRead> CborSeqReader<R> {
 
     /// Deserialize next block
     pub fn read_block<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
-        let result: T = match serde_ipld_dagcbor::de::from_reader_once(&mut self.reader) {
+        let result: T = match serde_cbor_core::de::from_reader_once(&mut self.reader) {
             Ok(value) => value,
-            Err(serde_ipld_dagcbor::DecodeError::Eof) => return Err(Error::Eof),
+            Err(serde_cbor_core::DecodeError::Eof) => return Err(Error::Eof),
             Err(err) => return Err(Error::CborDecode(err.to_string())),
         };
         Ok(result)
@@ -41,7 +41,7 @@ impl<W: Write> CborSeqWriter<W> {
 
     /// Serialize next block
     pub fn write_block<T: Serialize>(&mut self, block: &T) -> Result<(), Error> {
-        serde_ipld_dagcbor::ser::to_writer(&mut self.writer, block)?;
+        serde_cbor_core::ser::to_writer(&mut self.writer, block)?;
         Ok(())
     }
 
