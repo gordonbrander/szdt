@@ -56,7 +56,7 @@ Each memo contains:
 
 This gives us everything we need to verify the **authenticity** and **integrity** of the data.
 
-The body bytes are not present in the memo itself. Instead, we use the `src` field, a Blake3 hash of the serialized body bytes, as a **content address**. This enables memos to be distributed separately from content as as proofs. Altneratively, memos and bodies are commonly distributed together as [CBOR sequences](https://www.rfc-editor.org/rfc/rfc8742.html) by simply concatenating the memo, followed by the body part.
+The body bytes are not present in the memo itself. Instead, we use the `src` field, a Blake3 hash of the serialized body bytes, as a **content address**. This enables memos to be distributed separately from content as as proofs. Alternatively, memos and bodies are commonly distributed together as [CBOR sequences](https://www.rfc-editor.org/rfc/rfc8742.html) by simply concatenating the memo, followed by the body part.
 
 Any CBOR value is a valid SZDT value, so bodies can be CBOR byte strings, or more complex CBOR structures.
 
