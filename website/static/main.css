@@ -22,6 +22,7 @@
     --radius: calc(var(--u) * 4);
     --lg-breakpoint: 1200px;
     --main-padding-x: calc(var(--u) * 24);
+    --sidebar-padding-x: calc(var(--u) * 6);
 
     @media (max-width: 1500px) {
         --main-padding-x: calc(var(--u) * 12);
@@ -29,6 +30,7 @@
 
     @media (max-width: 1200px) {
         --main-padding-x: calc(var(--u) * 4);
+        --sidebar-padding-x: calc(var(--u) * 4);
     }
 }
 
@@ -279,7 +281,6 @@
 .page {
     --nav-height: calc(var(--u) * 16);
     --sidebar-width: calc(var(--u) * 80);
-    --sidebar-padding-x: calc(var(--u) * 6);
 
     display: block;
     width: 100vw;
@@ -346,6 +347,7 @@
         }
 
         .page-sidebar {
+            border-right: 0;
             opacity: 0;
             pointer-events: none;
             width: auto;
