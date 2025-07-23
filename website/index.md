@@ -9,13 +9,15 @@ title: SZDT - Signed Zero-trust DaTa
 
 **S**igned **Z**ero-trust **D**a**T**a. Pronounced "Samizdat".
 
-Signed CBOR for censorship-resistant data.
+It's time to make the web censorship-resistant. SZDT decouples trust from servers so that data can spread like dandelion seeds.
 
 <div class="hstack gap">
-    <a class="btn primary" href="{{ "guides/quickstart/" | prepend: site.url }}">Quickstart</a>
-    <a class="btn" href="https://github.com/gordonbrander/szdt/blob/main/WHITEPAPER.md">Whitepaper</a>
+    <a class="btn primary" href="https://github.com/gordonbrander/szdt/blob/main/WHITEPAPER.md">Whitepaper</a>
+    <a class="btn" href="{{ "guides/quickstart/" | prepend: site.url }}">Quickstart</a>
     <a class="btn" href="https://github.com/gordonbrander/szdt">GitHub</a>
 </div>
+
+SZDT is signed CBOR with everything needed to cryptographically verify authenticity and integrity. Data can be seeded across cheap commodity HTTP servers or over p2p protocols like [BitTorrent](https://transmissionbt.com/) and [Iroh](https://www.iroh.computer/).
 
 ## Supporters
 
